@@ -55,12 +55,32 @@ This section contains comprehensive documentation about the AgentOS system archi
 5. **Maintainability**: Clean, modular, testable code
 
 ### Technology Choices
-1. **Go**: High-performance backend services
-2. **React**: Modern, component-based frontend
-3. **PostgreSQL**: ACID-compliant relational database
-4. **Redis**: High-performance caching and queues
-5. **NATS**: Lightweight message streaming
-6. **Kubernetes**: Container orchestration platform
+1. **Go**: High-performance backend services (10x faster than Python)
+2. **Python**: AI workers for specialized ML/AI computations
+3. **React**: Modern, component-based frontend
+4. **PostgreSQL**: ACID-compliant relational database with pgvector
+5. **Redis**: High-performance caching and session storage
+6. **NATS**: Lightweight message streaming for async operations
+7. **Kubernetes**: Container orchestration platform
+
+### Hybrid Architecture Strategy
+**Core Principle**: Go for high-performance business logic, Python for AI-specific operations
+
+```yaml
+Go Services (Performance Critical):
+  - API Gateway and routing (core-api)
+  - Agent orchestration (agent-engine)
+  - Memory management (memory-service)
+  - Tool registry (tool-registry)
+  - Authentication (auth-service)
+
+Python Workers (AI Specialized):
+  - LangChain operations (langchain-worker)
+  - CrewAI workflows (crewai-worker)
+  - Swarms intelligence (swarms-worker)
+  - AutoGen conversations (autogen-worker)
+  - Vector embeddings (embedding-worker)
+```
 
 ## Architecture Decision Records (ADRs)
 

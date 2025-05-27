@@ -117,6 +117,9 @@ public
 # Backend microservices (PRIVATE)
 services/
 
+# AI Workers (PRIVATE)
+ai-workers/
+
 # Enterprise product (PRIVATE)
 products/enterprise/
 
