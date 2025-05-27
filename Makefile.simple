@@ -1,0 +1,38 @@
+# AgentOS Ecosystem - Simple Makefile
+.PHONY: help setup dev test build clean
+
+help:
+@echo "AgentOS Ecosystem - Development Commands"
+@echo "========================================"
+@echo "setup    - Setup development environment"
+@echo "dev      - Start development environment"
+@echo "test     - Run tests"
+@echo "build    - Build all services"
+@echo "clean    - Clean build artifacts"
+
+setup:
+@echo "Setting up development environment..."
+go mod tidy
+@echo "Setup complete!"
+
+dev:
+@echo "Starting development environment..."
+docker-compose up -d
+
+test:
+@echo "Running tests..."
+go test ./...
+
+build:
+@echo "Building services..."
+@for service in services/*/; do \
+if [ -f "$$service/main.go" ]; then \
+echo "Building $$service..."; \
+cd "$$service" && go build -o bin/service ./... && cd ../..; \
+fi \
+done
+
+clean:
+@echo "Cleaning build artifacts..."
+@find . -name "bin" -type d -exec rm -rf {} +
+go clean ./...

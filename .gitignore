@@ -140,6 +140,31 @@ tools/ci-cd/
 scripts/deploy.sh
 
 # ===================================
+# GO SPECIFIC
+# ===================================
+
+# Go build outputs
+bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Go test binary, built with `go test -c`
+*.test
+
+# Go coverage files
+*.out
+coverage.html
+
+# Go workspace file
+go.work
+
+# Go vendor directory
+vendor/
+
+# ===================================
 # DEVELOPMENT & BUILD
 # ===================================
 

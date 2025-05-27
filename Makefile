@@ -1,22 +1,31 @@
 # AgentOS Ecosystem - Makefile
 # Go-based backend services development workflow
 
-.PHONY: help build test clean dev docker-up docker-down migrate lint format deps
+.PHONY: help build test clean dev docker-up docker-down migrate lint format deps setup
 
 # Default target
 help: ## Show this help message
 	@echo "AgentOS Ecosystem - Development Commands"
 	@echo "========================================"
-	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+	@echo "setup           - Setup development environment"
+	@echo "dev             - Start development environment"
+	@echo "dev-services    - Start infrastructure services only"
+	@echo "build           - Build all Go services"
+	@echo "test            - Run all tests"
+	@echo "clean           - Clean build artifacts"
+	@echo "docker-up       - Start all services with Docker"
+	@echo "docker-down     - Stop all Docker services"
 
 # Development
+setup: ## Setup development environment
+	@echo "Setting up AgentOS development environment..."
+	go mod tidy
+	@echo "Environment setup complete!"
+
 dev: ## Start development environment with hot reload
 	@echo "Starting AgentOS development environment..."
 	docker-compose up -d postgres redis nats elasticsearch minio
-	@echo "Waiting for services to be ready..."
-	sleep 10
-	@echo "Starting Go services with hot reload..."
-	air -c .air.toml
+	@echo "Infrastructure services started!"
 
 dev-services: ## Start only infrastructure services
 	@echo "Starting infrastructure services..."
@@ -29,28 +38,23 @@ dev-stop: ## Stop development environment
 # Build
 build: ## Build all Go services
 	@echo "Building all Go services..."
-	@for service in services/*/; do \
-		if [ -f "$$service/main.go" ]; then \
-			echo "Building $$service..."; \
-			cd "$$service" && go build -o bin/service ./... && cd ../..; \
-		fi \
-	done
+	go build ./...
 
 build-core-api: ## Build core API service
 	@echo "Building core API service..."
-	cd services/core-api && go build -o bin/core-api ./...
+	@if [ -d "services/core-api" ]; then cd services/core-api && go build -o bin/core-api ./...; fi
 
 build-agent-engine: ## Build agent engine service
 	@echo "Building agent engine service..."
-	cd services/agent-engine && go build -o bin/agent-engine ./...
+	@if [ -d "services/agent-engine" ]; then cd services/agent-engine && go build -o bin/agent-engine ./...; fi
 
 build-memory-service: ## Build memory service
 	@echo "Building memory service..."
-	cd services/memory-service && go build -o bin/memory-service ./...
+	@if [ -d "services/memory-service" ]; then cd services/memory-service && go build -o bin/memory-service ./...; fi
 
 build-tool-registry: ## Build tool registry service
 	@echo "Building tool registry service..."
-	cd services/tool-registry && go build -o bin/tool-registry ./...
+	@if [ -d "services/tool-registry" ]; then cd services/tool-registry && go build -o bin/tool-registry ./...; fi
 
 # Testing
 test: ## Run all tests
@@ -64,24 +68,20 @@ test-verbose: ## Run tests with verbose output
 test-coverage: ## Run tests with coverage
 	@echo "Running tests with coverage..."
 	go test -coverprofile=coverage.out ./...
-	go tool cover -html=coverage.out -o coverage.html
-	@echo "Coverage report generated: coverage.html"
+	@if [ -f coverage.out ]; then go tool cover -html=coverage.out -o coverage.html; fi
 
-test-core-api: ## Test core API service
-	@echo "Testing core API service..."
-	cd services/core-api && go test ./...
+# Docker
+docker-up: ## Start all services with Docker
+	@echo "Starting all services with Docker..."
+	docker-compose up -d
 
-test-agent-engine: ## Test agent engine service
-	@echo "Testing agent engine service..."
-	cd services/agent-engine && go test ./...
+docker-down: ## Stop all Docker services
+	@echo "Stopping all Docker services..."
+	docker-compose down
 
-test-memory-service: ## Test memory service
-	@echo "Testing memory service..."
-	cd services/memory-service && go test ./...
-
-test-tool-registry: ## Test tool registry service
-	@echo "Testing tool registry service..."
-	cd services/tool-registry && go test ./...
+docker-logs: ## Show Docker logs
+	@echo "Showing Docker logs..."
+	docker-compose logs -f
 
 # Code Quality
 lint: ## Run linter
@@ -125,22 +125,9 @@ migrate-create: ## Create new migration (usage: make migrate-create name=migrati
 	@echo "Creating new migration: $(name)"
 	migrate create -ext sql -dir migrations $(name)
 
-# Docker
 docker-build: ## Build Docker images
 	@echo "Building Docker images..."
 	docker-compose build
-
-docker-up: ## Start all services with Docker
-	@echo "Starting all services with Docker..."
-	docker-compose up -d
-
-docker-down: ## Stop all Docker services
-	@echo "Stopping all Docker services..."
-	docker-compose down
-
-docker-logs: ## Show Docker logs
-	@echo "Showing Docker logs..."
-	docker-compose logs -f
 
 docker-clean: ## Clean Docker containers and volumes
 	@echo "Cleaning Docker containers and volumes..."
@@ -210,24 +197,16 @@ health: ## Check service health
 # Environment
 env-example: ## Create .env.example file
 	@echo "Creating .env.example file..."
-	@cat > .env.example << 'EOF'
-# AgentOS Environment Configuration
-GO_ENV=development
-DATABASE_URL=postgres://agentos:agentos_dev_password@localhost:5432/agentos_dev?sslmode=disable
-REDIS_URL=redis://localhost:6379/0
-NATS_URL=nats://localhost:4222
-ELASTICSEARCH_URL=http://localhost:9200
-MINIO_ENDPOINT=localhost:9000
-MINIO_ACCESS_KEY=agentos
-MINIO_SECRET_KEY=agentos_dev_password
-JWT_SECRET=your-jwt-secret-here
-OPENAI_API_KEY=your-openai-api-key
-ANTHROPIC_API_KEY=your-anthropic-api-key
-PINECONE_API_KEY=your-pinecone-api-key
-EOF
+	@echo "# AgentOS Environment Configuration" > .env.example
+	@echo "GO_ENV=development" >> .env.example
+	@echo "DATABASE_URL=postgres://agentos:agentos_dev_password@localhost:5432/agentos_dev?sslmode=disable" >> .env.example
+	@echo "REDIS_URL=redis://localhost:6379/0" >> .env.example
+	@echo "NATS_URL=nats://localhost:4222" >> .env.example
+	@echo "JWT_SECRET=your-jwt-secret-here" >> .env.example
+	@echo "OPENAI_API_KEY=your-openai-api-key" >> .env.example
 
 # Setup
-setup: deps install-tools env-example ## Setup development environment
+setup-full: deps install-tools env-example ## Full setup with tools installation
 	@echo "Setting up AgentOS development environment..."
 	@echo "1. Dependencies downloaded"
 	@echo "2. Development tools installed"
