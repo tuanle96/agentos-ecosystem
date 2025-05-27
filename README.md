@@ -3,12 +3,13 @@
 > A comprehensive AI agent operating system with 6 integrated products
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Go Version](https://img.shields.io/badge/go-%3E%3D1.21-blue)](https://golang.org/)
 [![Node.js Version](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen)](https://nodejs.org/)
 [![Lerna](https://img.shields.io/badge/maintained%20with-lerna-cc00ff.svg)](https://lerna.js.org/)
 
 ## 🌟 Overview
 
-AgentOS is a comprehensive AI agent ecosystem that provides a unified platform for creating, managing, and orchestrating intelligent agents. Built with a **monorepo architecture**, it supports multiple AI frameworks including LangChain, CrewAI, Swarms, and AutoGen through a universal orchestration layer.
+AgentOS is a comprehensive AI agent ecosystem that provides a unified platform for creating, managing, and orchestrating intelligent agents. Built with a **monorepo architecture**, it features **Go-based backend microservices** and supports multiple AI frameworks including LangChain, CrewAI, Swarms, and AutoGen through a universal orchestration layer.
 
 ## 🏗️ Ecosystem Architecture
 
@@ -22,21 +23,45 @@ AgentOS (Master Brand)
 └── AgentOS Community (Developer Ecosystem)
 ```
 
+## 🔧 Technology Stack
+
+### **Backend (Go)**
+- **Language**: Go 1.21+
+- **Framework**: Gin (HTTP), GORM (ORM)
+- **Database**: PostgreSQL 15+ with pgvector
+- **Cache**: Redis 7+ with clustering
+- **Message Queue**: NATS with JetStream
+- **Monitoring**: Prometheus + Grafana + Jaeger
+
+### **Frontend (JavaScript/TypeScript)**
+- **Framework**: React 18+ with TypeScript
+- **State Management**: Redux Toolkit
+- **UI Library**: Material-UI or Tailwind CSS
+- **Build Tool**: Vite
+- **Package Management**: Lerna + npm workspaces
+
+### **AI Integration**
+- **Swarms**: 5.0.0+ (Primary orchestration)
+- **LangChain**: 0.1.0+ (Tool ecosystem)
+- **CrewAI**: 0.22.0+ (Multi-agent collaboration)
+- **AutoGen**: 0.2.0+ (Conversational patterns)
+- **Vector DBs**: Pinecone, Weaviate, Qdrant
+
 ## 📁 Repository Structure
 
 ```
 agentos-ecosystem/
-├── packages/                          # [PUBLIC] Shared libraries
+├── services/                         # [PRIVATE] Go backend microservices
+│   ├── core-api/                     # Core API service (Gin + GORM)
+│   ├── agent-engine/                 # Agent execution engine
+│   ├── memory-service/               # Memory management with vector DBs
+│   └── tool-registry/                # Tool registry and execution
+│
+├── packages/                         # [PUBLIC] Shared libraries
 │   ├── core/                         # Core types and utilities
 │   ├── ui-components/                # Shared React components
 │   ├── api-client/                   # API client library
 │   └── testing/                      # Testing utilities
-│
-├── services/                         # [PRIVATE] Backend microservices
-│   ├── core-api/                     # Core API service
-│   ├── agent-engine/                 # Agent execution engine
-│   ├── memory-service/               # Memory management
-│   └── [additional services]
 │
 ├── products/                         # AgentOS Products
 │   ├── core/                        # [PUBLIC] AgentOS Core
@@ -56,10 +81,10 @@ agentos-ecosystem/
 
 ### Prerequisites
 
-- Node.js >= 18.0.0
-- npm >= 9.0.0
-- Python >= 3.11 (for AI services)
-- Docker (for development environment)
+- **Go**: 1.21 or higher
+- **Node.js**: 18.0.0 or higher
+- **Docker**: For development environment
+- **Make**: For build automation
 
 ### Installation
 
@@ -68,54 +93,82 @@ agentos-ecosystem/
 git clone https://github.com/tuanle96/agentos-ecosystem.git
 cd agentos-ecosystem
 
-# Install dependencies
-npm install
+# Setup development environment
+make setup
 
-# Bootstrap packages
-npm run bootstrap
+# Copy environment configuration
+cp .env.example .env
+# Edit .env with your API keys
 
-# Start development environment
-npm run dev
+# Start infrastructure services
+make dev-services
+
+# Run database migrations
+make migrate-up
+
+# Start development with hot reload
+make dev
 ```
 
 ## 🛠️ Development
 
-### Monorepo Management
-
-This project uses [Lerna](https://lerna.js.org/) for monorepo management with npm workspaces.
+### Go Backend Development
 
 ```bash
-# Build all packages
-npm run build
+# Build all services
+make build
 
 # Run tests
-npm run test
+make test
 
-# Lint code
-npm run lint
+# Run with hot reload
+make dev
 
-# Clean all packages
-npm run clean
+# Lint and format code
+make lint
+make format
+
+# Generate API documentation
+make swagger
 ```
 
-### Product-Specific Commands
+### Service-Specific Commands
 
 ```bash
-# Build specific products
-npm run build:core
-npm run build:enterprise
-npm run build:cloud
-npm run build:store
+# Build specific services
+make build-core-api
+make build-agent-engine
+make build-memory-service
+make build-tool-registry
 
-# Deploy specific products
-npm run deploy:core
-npm run deploy:enterprise
+# Test specific services
+make test-core-api
+make test-agent-engine
+make test-memory-service
+make test-tool-registry
+```
+
+### Frontend Development
+
+```bash
+# Install frontend dependencies
+npm install
+
+# Build all frontend packages
+npm run build
+
+# Run frontend in development mode
+npm run dev
+
+# Test frontend packages
+npm run test
 ```
 
 ## 📦 Products
 
 ### 🌐 AgentOS Core (Open Source)
 **License**: MIT  
+**Tech Stack**: Go + React  
 **Purpose**: Open source foundation for community adoption
 
 - Basic agent creation and management
@@ -125,6 +178,7 @@ npm run deploy:enterprise
 
 ### 🏢 AgentOS Enterprise (Commercial)
 **License**: Commercial  
+**Tech Stack**: Go + React  
 **Purpose**: Enterprise-grade features and compliance
 
 - Advanced security and RBAC
@@ -134,6 +188,7 @@ npm run deploy:enterprise
 
 ### ☁️ AgentOS Cloud (SaaS)
 **License**: SaaS Subscription  
+**Tech Stack**: Go + React + React Native  
 **Purpose**: Hosted platform for easy adoption
 
 - Web and mobile applications
@@ -143,6 +198,7 @@ npm run deploy:enterprise
 
 ### 🛒 AgentOS Store (Marketplace)
 **License**: Platform Fees  
+**Tech Stack**: Go + React  
 **Purpose**: Agent and tool marketplace
 
 - Agent marketplace
@@ -152,15 +208,17 @@ npm run deploy:enterprise
 
 ### 🔧 AgentOS SDK (Developer Tools)
 **License**: MIT  
+**Tech Stack**: Go + Multiple Languages  
 **Purpose**: Developer tools and integrations
 
-- Multi-language SDKs (Python, JavaScript, Go, Rust)
+- Multi-language SDKs (Go, Python, JavaScript, Rust)
 - API clients and utilities
 - Development tools and examples
 - Integration guides
 
 ### 👥 AgentOS Community (Open Platform)
 **License**: Open Community  
+**Tech Stack**: Go + React  
 **Purpose**: Community building and support
 
 - Developer forum and discussions
@@ -170,13 +228,13 @@ npm run deploy:enterprise
 
 ## 🤖 AI Framework Integration
 
-AgentOS supports multiple AI frameworks through a universal orchestration layer:
+AgentOS supports multiple AI frameworks through Go-based orchestration:
 
 - **Swarms**: 5.0.0+ (Primary orchestration)
-- **LangChain**: 0.1.0+ (Tool ecosystem)
+- **LangChain**: 0.1.0+ (Tool ecosystem via HTTP APIs)
 - **CrewAI**: 0.22.0+ (Multi-agent collaboration)
 - **AutoGen**: 0.2.0+ (Conversational patterns)
-- **mem0**: Latest (Memory management)
+- **Custom Integration**: Go-based AI service wrappers
 
 ## 🔒 Public/Private Strategy
 
@@ -187,10 +245,46 @@ AgentOS supports multiple AI frameworks through a universal orchestration layer:
 - Shared libraries and UI components
 
 ### Private Components 🔒
-- Backend microservices
+- Go backend microservices
 - Enterprise features
 - Cloud SaaS application
 - Infrastructure and deployment
+
+## 🐳 Docker Development
+
+```bash
+# Start all services
+make docker-up
+
+# View logs
+make docker-logs
+
+# Stop services
+make docker-down
+
+# Clean everything
+make docker-clean
+```
+
+## 📊 Monitoring & Observability
+
+- **Metrics**: Prometheus (http://localhost:9090)
+- **Dashboards**: Grafana (http://localhost:3000)
+- **Tracing**: Jaeger (http://localhost:16686)
+- **Logs**: Structured logging with logrus
+
+## 🗄️ Database
+
+```bash
+# Run migrations
+make migrate-up
+
+# Rollback migrations
+make migrate-down
+
+# Create new migration
+make migrate-create name=add_users_table
+```
 
 ## 📚 Documentation
 
@@ -234,12 +328,20 @@ See [LICENSE](LICENSE) for more details.
 
 ## 🗺️ Roadmap
 
-- [ ] **Phase 0**: Repository setup and monorepo foundation
+- [ ] **Phase 0**: Repository setup and Go backend foundation
 - [ ] **Phase 1**: AgentOS Core development (open source)
-- [ ] **Phase 2**: Backend services and infrastructure
+- [ ] **Phase 2**: Backend microservices and AI integration
 - [ ] **Phase 3**: Enterprise and Cloud products
 - [ ] **Phase 4**: Store marketplace and community platform
 
+## ⚡ Performance
+
+- **API Response**: <100ms (95th percentile)
+- **Agent Creation**: <500ms
+- **Memory Operations**: <10ms
+- **Concurrent Users**: 10,000+
+- **Throughput**: 100,000+ requests/min
+
 ---
 
-**Built with ❤️ by the AgentOS Team**
+**Built with ❤️ and ⚡ Go by the AgentOS Team**
