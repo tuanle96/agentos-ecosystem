@@ -39,6 +39,25 @@ services:
       timeout: 10s
       retries: 3
 
+  # NATS for Message Streaming
+  nats:
+    image: nats:2.10-alpine
+    container_name: agentos-nats
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+      - "6222:6222"
+    command: ["--jetstream", "--store_dir=/data", "--http_port=8222"]
+    volumes:
+      - nats_data:/data
+    networks:
+      - agentos-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8222/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
   # Elasticsearch for Search and Analytics
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
@@ -129,30 +148,29 @@ services:
     networks:
       - agentos-network
 
-  # Development Environment
-  dev-environment:
+  # Core API Service (Go)
+  core-api:
     build:
-      context: .
+      context: ./services/core-api
       dockerfile: Dockerfile.dev
-    container_name: agentos-dev
-    volumes:
-      - .:/workspace
-      - /workspace/node_modules
+    container_name: agentos-core-api
     ports:
-      - "3001:3001"  # Core frontend
-      - "3002:3002"  # Enterprise frontend
-      - "3003:3003"  # Cloud frontend
-      - "8000:8000"  # Core API
-      - "8001:8001"  # Agent Engine
-      - "8002:8002"  # Memory Service
+      - "8000:8000"
     environment:
-      - NODE_ENV=development
-      - DATABASE_URL=postgresql://agentos:agentos_dev_password@postgres:5432/agentos_dev
-      - REDIS_URL=redis://redis:6379
+      - GO_ENV=development
+      - DATABASE_URL=postgres://agentos:agentos_dev_password@postgres:5432/agentos_dev?sslmode=disable
+      - REDIS_URL=redis://redis:6379/0
+      - NATS_URL=nats://nats:4222
       - ELASTICSEARCH_URL=http://elasticsearch:9200
       - MINIO_ENDPOINT=minio:9000
       - MINIO_ACCESS_KEY=agentos
       - MINIO_SECRET_KEY=agentos_dev_password
+      - JWT_SECRET=dev-jwt-secret-change-in-production
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+    volumes:
+      - ./services/core-api:/app
+      - go_mod_cache:/go/pkg/mod
     networks:
       - agentos-network
     depends_on:
@@ -160,18 +178,130 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      elasticsearch:
+      nats:
         condition: service_healthy
-      minio:
-        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Agent Engine Service (Go)
+  agent-engine:
+    build:
+      context: ./services/agent-engine
+      dockerfile: Dockerfile.dev
+    container_name: agentos-agent-engine
+    ports:
+      - "8001:8001"
+    environment:
+      - GO_ENV=development
+      - DATABASE_URL=postgres://agentos:agentos_dev_password@postgres:5432/agentos_dev?sslmode=disable
+      - REDIS_URL=redis://redis:6379/1
+      - NATS_URL=nats://nats:4222
+      - CORE_API_URL=http://core-api:8000
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+    volumes:
+      - ./services/agent-engine:/app
+      - go_mod_cache:/go/pkg/mod
+    networks:
+      - agentos-network
+    depends_on:
+      - core-api
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Memory Service (Go)
+  memory-service:
+    build:
+      context: ./services/memory-service
+      dockerfile: Dockerfile.dev
+    container_name: agentos-memory-service
+    ports:
+      - "8002:8002"
+    environment:
+      - GO_ENV=development
+      - DATABASE_URL=postgres://agentos:agentos_dev_password@postgres:5432/agentos_dev?sslmode=disable
+      - REDIS_URL=redis://redis:6379/2
+      - ELASTICSEARCH_URL=http://elasticsearch:9200
+      - PINECONE_API_KEY=${PINECONE_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    volumes:
+      - ./services/memory-service:/app
+      - go_mod_cache:/go/pkg/mod
+    networks:
+      - agentos-network
+    depends_on:
+      - core-api
+      - elasticsearch
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Tool Registry Service (Go)
+  tool-registry:
+    build:
+      context: ./services/tool-registry
+      dockerfile: Dockerfile.dev
+    container_name: agentos-tool-registry
+    ports:
+      - "8003:8003"
+    environment:
+      - GO_ENV=development
+      - DATABASE_URL=postgres://agentos:agentos_dev_password@postgres:5432/agentos_dev?sslmode=disable
+      - REDIS_URL=redis://redis:6379/3
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=agentos
+      - MINIO_SECRET_KEY=agentos_dev_password
+    volumes:
+      - ./services/tool-registry:/app
+      - go_mod_cache:/go/pkg/mod
+    networks:
+      - agentos-network
+    depends_on:
+      - core-api
+      - minio
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8003/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Development Hot Reload (Air)
+  dev-watcher:
+    image: golang:1.21-alpine
+    container_name: agentos-dev-watcher
+    working_dir: /workspace
+    volumes:
+      - .:/workspace
+      - go_mod_cache:/go/pkg/mod
+    command: |
+      sh -c "
+        go install github.com/air-verse/air@latest &&
+        air -c .air.toml
+      "
+    networks:
+      - agentos-network
+    depends_on:
+      - postgres
+      - redis
+      - nats
 
 volumes:
   postgres_data:
   redis_data:
+  nats_data:
   elasticsearch_data:
   minio_data:
   prometheus_data:
   grafana_data:
+  go_mod_cache:
 
 networks:
   agentos-network:
