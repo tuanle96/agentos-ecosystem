@@ -1,0 +1,75 @@
+{
+  "name": "agentos-ecosystem",
+  "version": "0.1.0",
+  "description": "AgentOS Ecosystem - A comprehensive AI agent operating system with 6 products",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "services/*",
+    "products/*/frontend",
+    "products/*/cli",
+    "products/sdk/*"
+  ],
+  "scripts": {
+    "build": "lerna run build",
+    "test": "lerna run test",
+    "lint": "lerna run lint",
+    "dev": "lerna run dev --parallel",
+    "clean": "lerna clean",
+    "bootstrap": "lerna bootstrap",
+    "build:core": "lerna run build --scope=@agentos/core",
+    "build:enterprise": "lerna run build --scope=@agentos/enterprise",
+    "build:cloud": "lerna run build --scope=@agentos/cloud",
+    "build:store": "lerna run build --scope=@agentos/store",
+    "build:sdk": "lerna run build --scope=@agentos/sdk",
+    "build:community": "lerna run build --scope=@agentos/community",
+    "test:all": "lerna run test",
+    "deploy:core": "lerna run deploy --scope=@agentos/core",
+    "deploy:enterprise": "lerna run deploy --scope=@agentos/enterprise",
+    "deploy:cloud": "lerna run deploy --scope=@agentos/cloud",
+    "deploy:store": "lerna run deploy --scope=@agentos/store"
+  },
+  "devDependencies": {
+    "lerna": "^8.0.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "eslint": "^8.0.0",
+    "eslint-config-prettier": "^9.0.0",
+    "eslint-plugin-react": "^7.33.0",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "prettier": "^3.0.0",
+    "typescript": "^5.0.0",
+    "husky": "^8.0.0",
+    "lint-staged": "^15.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tuanle96/agentos-ecosystem.git"
+  },
+  "keywords": [
+    "ai",
+    "agents",
+    "agentos",
+    "ecosystem",
+    "monorepo",
+    "langchain",
+    "crewai",
+    "swarms",
+    "autogen"
+  ],
+  "author": "Lê Anh Tuấn <tuanle96@example.com>",
+  "license": "MIT",
+  "lint-staged": {
+    "*.{js,jsx,ts,tsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,md,yml,yaml}": [
+      "prettier --write"
+    ]
+  }
+}
