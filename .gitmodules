@@ -1,0 +1,12 @@
+[submodule "private/core-services"]
+	path = private/core-services
+	url = https://github.com/tuanle96/agentos-core-services.git
+[submodule "private/platform-services"]
+	path = private/platform-services
+	url = https://github.com/tuanle96/agentos-platform-services.git
+[submodule "private/ai-workers"]
+	path = private/ai-workers
+	url = https://github.com/tuanle96/agentos-ai-workers.git
+[submodule "private/infrastructure"]
+	path = private/infrastructure
+	url = https://github.com/tuanle96/agentos-infrastructure.git

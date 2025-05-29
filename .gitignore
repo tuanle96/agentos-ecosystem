@@ -114,27 +114,6 @@ public
 # ===================================
 # These directories contain proprietary code and should never be public
 
-# Backend microservices (PRIVATE)
-services/
-
-# AI Workers (PRIVATE)
-ai-workers/
-
-# Enterprise product (PRIVATE)
-products/enterprise/
-
-# Cloud SaaS application (PRIVATE - except landing page)
-products/cloud/web-app/
-products/cloud/mobile-app/
-products/cloud/billing-portal/
-
-# Store backend and payment processing (PRIVATE)
-products/store/seller-dashboard/
-products/store/payment-processing/
-
-# Infrastructure as Code (PRIVATE)
-infrastructure/
-
 # Deployment and CI/CD (PRIVATE)
 tools/deployment/
 tools/ci-cd/
