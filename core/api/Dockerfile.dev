@@ -1,0 +1,30 @@
+# Development Dockerfile for AgentOS Core API
+FROM golang:1.23-alpine AS development
+
+# Install development dependencies
+RUN apk add --no-cache git curl
+
+# Set working directory
+WORKDIR /app
+
+# Install Air for hot reloading
+RUN go install github.com/air-verse/air@latest
+
+# Copy go mod files
+COPY go.mod go.sum ./
+
+# Download dependencies
+RUN go mod download
+
+# Copy source code
+COPY . .
+
+# Expose port
+EXPOSE 8000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+# Run with Air for hot reloading
+CMD ["air", "-c", ".air.toml"]

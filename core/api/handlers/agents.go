@@ -94,22 +94,12 @@ func (h *Handler) CreateAgent(c *gin.Context) {
 		return
 	}
 
-	// Validate capabilities exist
-	validCapabilities := []string{"web_search", "file_operations", "api_calls", "calculations", "text_processing"}
-	for _, cap := range req.Capabilities {
-		valid := false
-		for _, validCap := range validCapabilities {
-			if cap == validCap {
-				valid = true
-				break
-			}
-		}
-		if !valid {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"error": "Invalid capability: " + cap,
-			})
-			return
-		}
+	// Enhanced capability validation with conflict resolution
+	if err := h.validateAndResolveCapabilities(req.Capabilities); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": err.Error(),
+		})
+		return
 	}
 
 	// Set default framework preference
@@ -306,5 +296,65 @@ func (h *Handler) DeleteAgent(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Agent deleted successfully",
+	})
+}
+
+// GetCapabilityRecommendations returns capability recommendations for an agent
+func (h *Handler) GetCapabilityRecommendations(c *gin.Context) {
+	userID := c.GetString("user_id")
+	if userID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": "User not authenticated",
+		})
+		return
+	}
+
+	// Get existing capabilities from query params
+	existingCaps := c.QueryArray("capabilities")
+
+	// Get recommendations
+	recommendations := h.getCapabilityRecommendations(existingCaps)
+
+	c.JSON(http.StatusOK, gin.H{
+		"existing_capabilities": existingCaps,
+		"recommendations":       recommendations,
+		"resource_usage":        h.calculateResourceCost(existingCaps),
+		"resource_limit":        6,
+	})
+}
+
+// ValidateCapabilities validates a set of capabilities
+func (h *Handler) ValidateCapabilities(c *gin.Context) {
+	var req struct {
+		Capabilities []string `json:"capabilities" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "Invalid request format",
+			"details": err.Error(),
+		})
+		return
+	}
+
+	// Validate capabilities
+	if err := h.validateAndResolveCapabilities(req.Capabilities); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"valid":        false,
+			"error":        err.Error(),
+			"capabilities": req.Capabilities,
+		})
+		return
+	}
+
+	// Get optimal framework
+	optimalFramework := h.selectOptimalFramework(req.Capabilities, map[string]interface{}{})
+
+	c.JSON(http.StatusOK, gin.H{
+		"valid":             true,
+		"capabilities":      req.Capabilities,
+		"resource_cost":     h.calculateResourceCost(req.Capabilities),
+		"optimal_framework": optimalFramework,
+		"recommendations":   h.getCapabilityRecommendations(req.Capabilities),
 	})
 }

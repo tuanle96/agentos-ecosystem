@@ -151,7 +151,7 @@ services:
   # Core API Service (Go)
   core-api:
     build:
-      context: ./services/core-api
+      context: ./core/api
       dockerfile: Dockerfile.dev
     container_name: agentos-core-api
     ports:
@@ -169,7 +169,7 @@ services:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
     volumes:
-      - ./services/core-api:/app
+      - ./core/api:/app
       - go_mod_cache:/go/pkg/mod
     networks:
       - agentos-network
@@ -186,92 +186,92 @@ services:
       timeout: 10s
       retries: 3
 
-  # Agent Engine Service (Go)
-  agent-engine:
-    build:
-      context: ./services/agent-engine
-      dockerfile: Dockerfile.dev
-    container_name: agentos-agent-engine
-    ports:
-      - "8001:8001"
-    environment:
-      - GO_ENV=development
-      - DATABASE_URL=postgres://agentos:agentos_dev_password@postgres:5432/agentos_dev?sslmode=disable
-      - REDIS_URL=redis://redis:6379/1
-      - NATS_URL=nats://nats:4222
-      - CORE_API_URL=http://core-api:8000
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-    volumes:
-      - ./services/agent-engine:/app
-      - go_mod_cache:/go/pkg/mod
-    networks:
-      - agentos-network
-    depends_on:
-      - core-api
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+  # Agent Engine Service (Go) - Week 3+
+  # agent-engine:
+  #   build:
+  #     context: ./core/agent-engine
+  #     dockerfile: Dockerfile.dev
+  #   container_name: agentos-agent-engine
+  #   ports:
+  #     - "8001:8001"
+  #   environment:
+  #     - GO_ENV=development
+  #     - DATABASE_URL=postgres://agentos:agentos_dev_password@postgres:5432/agentos_dev?sslmode=disable
+  #     - REDIS_URL=redis://redis:6379/1
+  #     - NATS_URL=nats://nats:4222
+  #     - CORE_API_URL=http://core-api:8000
+  #     - OPENAI_API_KEY=${OPENAI_API_KEY}
+  #     - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+  #   volumes:
+  #     - ./core/agent-engine:/app
+  #     - go_mod_cache:/go/pkg/mod
+  #   networks:
+  #     - agentos-network
+  #   depends_on:
+  #     - core-api
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
 
-  # Memory Service (Go)
-  memory-service:
-    build:
-      context: ./services/memory-service
-      dockerfile: Dockerfile.dev
-    container_name: agentos-memory-service
-    ports:
-      - "8002:8002"
-    environment:
-      - GO_ENV=development
-      - DATABASE_URL=postgres://agentos:agentos_dev_password@postgres:5432/agentos_dev?sslmode=disable
-      - REDIS_URL=redis://redis:6379/2
-      - ELASTICSEARCH_URL=http://elasticsearch:9200
-      - PINECONE_API_KEY=${PINECONE_API_KEY}
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-    volumes:
-      - ./services/memory-service:/app
-      - go_mod_cache:/go/pkg/mod
-    networks:
-      - agentos-network
-    depends_on:
-      - core-api
-      - elasticsearch
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+  # Memory Service (Go) - Week 3+
+  # memory-service:
+  #   build:
+  #     context: ./platform/services/memory-service
+  #     dockerfile: Dockerfile.dev
+  #   container_name: agentos-memory-service
+  #   ports:
+  #     - "8002:8002"
+  #   environment:
+  #     - GO_ENV=development
+  #     - DATABASE_URL=postgres://agentos:agentos_dev_password@postgres:5432/agentos_dev?sslmode=disable
+  #     - REDIS_URL=redis://redis:6379/2
+  #     - ELASTICSEARCH_URL=http://elasticsearch:9200
+  #     - PINECONE_API_KEY=${PINECONE_API_KEY}
+  #     - OPENAI_API_KEY=${OPENAI_API_KEY}
+  #   volumes:
+  #     - ./platform/services/memory-service:/app
+  #     - go_mod_cache:/go/pkg/mod
+  #   networks:
+  #     - agentos-network
+  #   depends_on:
+  #     - core-api
+  #     - elasticsearch
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
 
-  # Tool Registry Service (Go)
-  tool-registry:
-    build:
-      context: ./services/tool-registry
-      dockerfile: Dockerfile.dev
-    container_name: agentos-tool-registry
-    ports:
-      - "8003:8003"
-    environment:
-      - GO_ENV=development
-      - DATABASE_URL=postgres://agentos:agentos_dev_password@postgres:5432/agentos_dev?sslmode=disable
-      - REDIS_URL=redis://redis:6379/3
-      - MINIO_ENDPOINT=minio:9000
-      - MINIO_ACCESS_KEY=agentos
-      - MINIO_SECRET_KEY=agentos_dev_password
-    volumes:
-      - ./services/tool-registry:/app
-      - go_mod_cache:/go/pkg/mod
-    networks:
-      - agentos-network
-    depends_on:
-      - core-api
-      - minio
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8003/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+  # Tool Registry Service (Go) - Week 3+
+  # tool-registry:
+  #   build:
+  #     context: ./platform/services/tool-registry
+  #     dockerfile: Dockerfile.dev
+  #   container_name: agentos-tool-registry
+  #   ports:
+  #     - "8003:8003"
+  #   environment:
+  #     - GO_ENV=development
+  #     - DATABASE_URL=postgres://agentos:agentos_dev_password@postgres:5432/agentos_dev?sslmode=disable
+  #     - REDIS_URL=redis://redis:6379/3
+  #     - MINIO_ENDPOINT=minio:9000
+  #     - MINIO_ACCESS_KEY=agentos
+  #     - MINIO_SECRET_KEY=agentos_dev_password
+  #   volumes:
+  #     - ./platform/services/tool-registry:/app
+  #     - go_mod_cache:/go/pkg/mod
+  #   networks:
+  #     - agentos-network
+  #   depends_on:
+  #     - core-api
+  #     - minio
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://localhost:8003/health"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
 
   # Development Hot Reload (Air)
   dev-watcher:
