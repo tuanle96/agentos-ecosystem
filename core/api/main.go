@@ -1,60 +1,120 @@
 package main
 
 import (
+	"database/sql"
 	"log"
 	"net/http"
 	"os"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
-	"github.com/tuanle96/agentos-ecosystem/core/api/handlers"
+	"github.com/joho/godotenv"
+	_ "github.com/lib/pq"
+	"github.com/redis/go-redis/v9"
 	"github.com/tuanle96/agentos-ecosystem/core/api/config"
+	"github.com/tuanle96/agentos-ecosystem/core/api/handlers"
+	"github.com/tuanle96/agentos-ecosystem/core/api/middleware"
 )
 
 func main() {
+	// Load environment variables
+	if err := godotenv.Load(); err != nil {
+		log.Println("No .env file found, using system environment variables")
+	}
+
 	// Load configuration
 	cfg := config.Load()
-	
+
+	// Initialize database connection
+	db, err := sql.Open("postgres", cfg.DatabaseURL)
+	if err != nil {
+		log.Fatal("Failed to connect to database:", err)
+	}
+	defer db.Close()
+
+	// Test database connection
+	if err := db.Ping(); err != nil {
+		log.Fatal("Failed to ping database:", err)
+	}
+	log.Println("Connected to PostgreSQL database")
+
+	// Initialize Redis client
+	rdb := redis.NewClient(&redis.Options{
+		Addr: cfg.RedisURL,
+		DB:   0,
+	})
+
 	// Initialize Gin router
+	if cfg.Environment == "production" {
+		gin.SetMode(gin.ReleaseMode)
+	}
 	r := gin.Default()
-	
+
+	// CORS middleware
+	r.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{"http://localhost:3000", "http://localhost:5173"},
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
+		AllowCredentials: true,
+	}))
+
 	// Health check endpoint
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
-			"status": "healthy",
-			"service": "agentos-core-api",
-			"version": "0.1.0",
+			"status":    "healthy",
+			"service":   "agentos-core-api",
+			"version":   "0.1.0-mvp",
+			"timestamp": "2024-12-27",
 		})
 	})
-	
-	// API routes
-	api := r.Group("/api/v1")
+
+	// Initialize handlers with dependencies
+	h := handlers.New(db, rdb, cfg)
+
+	// Public routes (no authentication required)
+	public := r.Group("/api/v1")
+	{
+		// Authentication
+		public.POST("/auth/register", h.Register)
+		public.POST("/auth/login", h.Login)
+		public.GET("/tools", h.ListTools) // Public tool listing
+	}
+
+	// Protected routes (authentication required)
+	protected := r.Group("/api/v1")
+	protected.Use(middleware.AuthMiddleware(cfg.JWTSecret))
 	{
 		// Agent management
-		api.GET("/agents", handlers.ListAgents)
-		api.POST("/agents", handlers.CreateAgent)
-		api.GET("/agents/:id", handlers.GetAgent)
-		api.PUT("/agents/:id", handlers.UpdateAgent)
-		api.DELETE("/agents/:id", handlers.DeleteAgent)
-		
-		// Task management
-		api.GET("/tasks", handlers.ListTasks)
-		api.POST("/tasks", handlers.CreateTask)
-		api.GET("/tasks/:id", handlers.GetTask)
-		api.PUT("/tasks/:id", handlers.UpdateTask)
-		api.DELETE("/tasks/:id", handlers.DeleteTask)
-		
-		// Execution
-		api.POST("/execute", handlers.ExecuteTask)
-		api.GET("/executions/:id", handlers.GetExecution)
-		api.GET("/executions/:id/logs", handlers.GetExecutionLogs)
+		protected.GET("/agents", h.ListAgents)
+		protected.POST("/agents", h.CreateAgent)
+		protected.GET("/agents/:id", h.GetAgent)
+		protected.PUT("/agents/:id", h.UpdateAgent)
+		protected.DELETE("/agents/:id", h.DeleteAgent)
+
+		// Agent execution
+		protected.POST("/agents/:id/execute", h.ExecuteAgent)
+		protected.GET("/agents/:id/executions", h.GetAgentExecutions)
+
+		// Execution management
+		protected.GET("/executions/:id", h.GetExecution)
+		protected.GET("/executions/:id/logs", h.GetExecutionLogs)
+
+		// Memory management
+		protected.GET("/agents/:id/memory", h.GetAgentMemory)
+		protected.POST("/agents/:id/memory/clear", h.ClearAgentMemory)
+
+		// User profile
+		protected.GET("/profile", h.GetProfile)
+		protected.PUT("/profile", h.UpdateProfile)
 	}
-	
+
 	// Start server
-	port := os.Getenv("PORT")
+	port := os.Getenv("CORE_API_PORT")
 	if port == "" {
-		port = cfg.Port
+		port = "8000"
 	}
-	
+
 	log.Printf("Starting AgentOS Core API on port %s", port)
+	log.Printf("Environment: %s", cfg.Environment)
 	log.Fatal(r.Run(":" + port))
 }
