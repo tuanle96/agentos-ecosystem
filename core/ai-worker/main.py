@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
-AgentOS AI Worker - LangChain Integration (Week 2 Enhancement)
-Main FastAPI application for AI agent processing with LangChain wrapper
+AgentOS AI Worker - Multi-Framework Integration (Week 3 Enhancement)
+Main FastAPI application for AI agent processing with multi-framework support
+Supports: LangChain, Swarms, CrewAI, AutoGen
 """
 
 import os
@@ -9,29 +10,42 @@ import uuid
 import time
 import asyncio
 import uvicorn
+import logging
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Dict, Any, List, Optional
 
-# LangChain imports
-try:
-    from langchain.agents import initialize_agent, AgentType
-    from langchain.llms import OpenAI
-    from langchain.memory import ConversationBufferMemory
-    from langchain.tools import Tool
-    from langchain.schema import AgentAction, AgentFinish
-    LANGCHAIN_AVAILABLE = True
-except ImportError:
-    LANGCHAIN_AVAILABLE = False
-    # Create dummy classes for when LangChain is not available
-    class Tool:
-        def __init__(self, name, description, func):
-            self.name = name
-            self.description = description
-            self.func = func
+# Setup logging first
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-    print("Warning: LangChain not available. Install with: pip install langchain")
+# Multi-framework imports
+try:
+    from frameworks import (
+        FrameworkOrchestrator,
+        get_available_frameworks,
+        get_framework_capabilities,
+        FRAMEWORK_REGISTRY,
+        LANGCHAIN_AVAILABLE,
+        SWARMS_AVAILABLE,
+        CREWAI_AVAILABLE,
+        AUTOGEN_AVAILABLE
+    )
+    from frameworks.base_wrapper import (
+        AgentConfig as FrameworkAgentConfig,
+        TaskRequest as FrameworkTaskRequest,
+        TaskResponse as FrameworkTaskResponse,
+        FrameworkType
+    )
+    MULTI_FRAMEWORK_AVAILABLE = True
+except ImportError:
+    MULTI_FRAMEWORK_AVAILABLE = False
+    LANGCHAIN_AVAILABLE = False
+    SWARMS_AVAILABLE = False
+    CREWAI_AVAILABLE = False
+    AUTOGEN_AVAILABLE = False
+    logger.warning("Multi-framework support not available")
 
 # Initialize FastAPI app
 app = FastAPI(
