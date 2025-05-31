@@ -1,0 +1,13 @@
+# github.com/tuanle96/agentos-ecosystem/core/api [github.com/tuanle96/agentos-ecosystem/core/api.test]
+./main_optimized.go:23:6: main redeclared in this block
+	./main.go:20:6: other declaration of main
+./main_optimized.go:198:17: not enough arguments in call to middleware.AuthMiddleware
+	have ()
+	want (string)
+./main_optimized.go:206:31: h.GetAgents undefined (type *handlers.Handler has no field or method GetAgents)
+./main_optimized.go:218:38: h.StoreMemory undefined (type *handlers.Handler has no field or method StoreMemory)
+./main_optimized.go:219:39: h.SearchMemory undefined (type *handlers.Handler has no field or method SearchMemory)
+./main_week6_optimized.go:256:6: main redeclared in this block
+	./main.go:20:6: other declaration of main
+FAIL	github.com/tuanle96/agentos-ecosystem/core/api [build failed]
+FAIL

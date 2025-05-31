@@ -12,9 +12,11 @@ import (
 
 // Handler holds dependencies for HTTP handlers
 type Handler struct {
-	db     *sql.DB
-	redis  *redis.Client
-	config *config.Config
+	db             *sql.DB
+	redis          *redis.Client
+	config         *config.Config
+	OptimizedDB    interface{} // Will be *database.OptimizedDB
+	OptimizedCache interface{} // Will be *cache.OptimizedRedisCache
 }
 
 // New creates a new handler instance

@@ -23,11 +23,13 @@ import (
 // TestSuite defines the test suite for AgentOS Core API
 type TestSuite struct {
 	suite.Suite
-	router   *gin.Engine
-	db       *sql.DB
-	redis    *redis.Client
-	handler  *handlers.Handler
-	testUser TestUser
+	router     *gin.Engine
+	db         *sql.DB
+	redis      *redis.Client
+	handler    *handlers.Handler
+	testUser   TestUser
+	testToolID string
+	token      string
 }
 
 // TestUser represents a test user for authentication
@@ -137,6 +139,14 @@ func (suite *TestSuite) setupRoutes() {
 		protected.POST("/agents/:id/memory/clear", suite.handler.ClearAgentMemory)
 		protected.GET("/profile", suite.handler.GetProfile)
 		protected.PUT("/profile", suite.handler.UpdateProfile)
+
+		// Tool Marketplace routes (Week 5)
+		protected.POST("/marketplace/tools", suite.handler.CreateTool)
+		protected.GET("/marketplace/tools", suite.handler.GetTools)
+		protected.GET("/marketplace/tools/:id", suite.handler.GetTool)
+		protected.PUT("/marketplace/tools/:id", suite.handler.UpdateTool)
+		protected.DELETE("/marketplace/tools/:id", suite.handler.DeleteTool)
+		protected.POST("/marketplace/tools/install", suite.handler.InstallTool)
 	}
 }
 
@@ -162,6 +172,7 @@ func (suite *TestSuite) createTestUser() {
 		json.Unmarshal(w.Body.Bytes(), &response)
 
 		suite.testUser.Token = response["token"].(string)
+		suite.token = response["token"].(string) // Set token for marketplace tests
 		user := response["user"].(map[string]interface{})
 		suite.testUser.ID = user["id"].(string)
 		suite.testUser.Email = user["email"].(string)

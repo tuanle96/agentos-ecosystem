@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"log"
 	"net/http"
+	_ "net/http/pprof"
 	"os"
 
 	"github.com/gin-contrib/cors"
@@ -68,6 +69,13 @@ func main() {
 		})
 	})
 
+	// Performance profiling endpoints (Week 6 - Development only)
+	if cfg.Environment != "production" {
+		// Add pprof endpoints for performance profiling
+		r.GET("/debug/pprof/*any", gin.WrapH(http.DefaultServeMux))
+		log.Println("Performance profiling endpoints enabled at /debug/pprof/")
+	}
+
 	// Initialize handlers with dependencies
 	h := handlers.New(db, rdb, cfg)
 
@@ -122,6 +130,21 @@ func main() {
 		// User profile
 		protected.GET("/profile", h.GetProfile)
 		protected.PUT("/profile", h.UpdateProfile)
+
+		// Tool Marketplace (Week 5)
+		protected.POST("/marketplace/tools", h.CreateTool)
+		protected.GET("/marketplace/tools", h.GetTools)
+		protected.GET("/marketplace/tools/:id", h.GetTool)
+		protected.PUT("/marketplace/tools/:id", h.UpdateTool)
+		protected.DELETE("/marketplace/tools/:id", h.DeleteTool)
+		protected.POST("/marketplace/tools/install", h.InstallTool)
+
+		// Performance Monitoring (Week 6)
+		if cfg.Environment != "production" {
+			protected.GET("/performance/metrics", h.GetPerformanceMetrics)
+			protected.GET("/performance/health", h.GetSystemHealth)
+			protected.GET("/performance/benchmark", h.GetPerformanceBenchmark)
+		}
 	}
 
 	// Start server

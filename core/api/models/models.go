@@ -232,3 +232,184 @@ type SemanticMemoryEntry struct {
 	CreatedAt  time.Time `json:"created_at"`
 	UpdatedAt  time.Time `json:"updated_at"`
 }
+
+// Tool Marketplace Models
+
+// ToolMarketplace represents a tool in the marketplace
+type ToolMarketplace struct {
+	ID             uuid.UUID  `json:"id" db:"id"`
+	DeveloperID    uuid.UUID  `json:"developer_id" db:"developer_id"`
+	Name           string     `json:"name" db:"name"`
+	DisplayName    string     `json:"display_name" db:"display_name"`
+	Description    string     `json:"description" db:"description"`
+	Category       string     `json:"category" db:"category"`
+	Tags           JSONB      `json:"tags" db:"tags"`
+	Version        string     `json:"version" db:"version"`
+	LatestVersion  string     `json:"latest_version" db:"latest_version"`
+	FunctionSchema JSONB      `json:"function_schema" db:"function_schema"`
+	SourceCode     string     `json:"source_code" db:"source_code"`
+	Documentation  string     `json:"documentation" db:"documentation"`
+	Examples       JSONB      `json:"examples" db:"examples"`
+	Dependencies   JSONB      `json:"dependencies" db:"dependencies"`
+	Requirements   JSONB      `json:"requirements" db:"requirements"`
+	IsPublic       bool       `json:"is_public" db:"is_public"`
+	IsVerified     bool       `json:"is_verified" db:"is_verified"`
+	IsActive       bool       `json:"is_active" db:"is_active"`
+	DownloadCount  int        `json:"download_count" db:"download_count"`
+	Rating         float64    `json:"rating" db:"rating"`
+	RatingCount    int        `json:"rating_count" db:"rating_count"`
+	SecurityStatus string     `json:"security_status" db:"security_status"`
+	ValidationHash string     `json:"validation_hash" db:"validation_hash"`
+	CreatedAt      time.Time  `json:"created_at" db:"created_at"`
+	UpdatedAt      time.Time  `json:"updated_at" db:"updated_at"`
+	PublishedAt    *time.Time `json:"published_at" db:"published_at"`
+}
+
+// ToolVersion represents a specific version of a tool
+type ToolVersion struct {
+	ID             uuid.UUID `json:"id" db:"id"`
+	ToolID         uuid.UUID `json:"tool_id" db:"tool_id"`
+	Version        string    `json:"version" db:"version"`
+	ChangeLog      string    `json:"changelog" db:"changelog"`
+	FunctionSchema JSONB     `json:"function_schema" db:"function_schema"`
+	SourceCode     string    `json:"source_code" db:"source_code"`
+	Dependencies   JSONB     `json:"dependencies" db:"dependencies"`
+	IsStable       bool      `json:"is_stable" db:"is_stable"`
+	SecurityStatus string    `json:"security_status" db:"security_status"`
+	ValidationHash string    `json:"validation_hash" db:"validation_hash"`
+	CreatedAt      time.Time `json:"created_at" db:"created_at"`
+}
+
+// ToolInstallation represents a user's tool installation
+type ToolInstallation struct {
+	ID            uuid.UUID  `json:"id" db:"id"`
+	UserID        uuid.UUID  `json:"user_id" db:"user_id"`
+	ToolID        uuid.UUID  `json:"tool_id" db:"tool_id"`
+	VersionID     uuid.UUID  `json:"version_id" db:"version_id"`
+	Status        string     `json:"status" db:"status"`
+	Configuration JSONB      `json:"configuration" db:"configuration"`
+	InstalledAt   time.Time  `json:"installed_at" db:"installed_at"`
+	UpdatedAt     time.Time  `json:"updated_at" db:"updated_at"`
+	LastUsedAt    *time.Time `json:"last_used_at" db:"last_used_at"`
+}
+
+// ToolReview represents a user review of a tool
+type ToolReview struct {
+	ID        uuid.UUID `json:"id" db:"id"`
+	ToolID    uuid.UUID `json:"tool_id" db:"tool_id"`
+	UserID    uuid.UUID `json:"user_id" db:"user_id"`
+	Rating    int       `json:"rating" db:"rating"`
+	Title     string    `json:"title" db:"title"`
+	Comment   string    `json:"comment" db:"comment"`
+	IsPublic  bool      `json:"is_public" db:"is_public"`
+	CreatedAt time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt time.Time `json:"updated_at" db:"updated_at"`
+}
+
+// ToolUsageStats represents tool usage statistics
+type ToolUsageStats struct {
+	ID             uuid.UUID  `json:"id" db:"id"`
+	ToolID         uuid.UUID  `json:"tool_id" db:"tool_id"`
+	UserID         uuid.UUID  `json:"user_id" db:"user_id"`
+	ExecutionCount int        `json:"execution_count" db:"execution_count"`
+	SuccessCount   int        `json:"success_count" db:"success_count"`
+	ErrorCount     int        `json:"error_count" db:"error_count"`
+	TotalTimeMs    int64      `json:"total_time_ms" db:"total_time_ms"`
+	AverageTimeMs  float64    `json:"average_time_ms" db:"average_time_ms"`
+	LastExecutedAt *time.Time `json:"last_executed_at" db:"last_executed_at"`
+	CreatedAt      time.Time  `json:"created_at" db:"created_at"`
+	UpdatedAt      time.Time  `json:"updated_at" db:"updated_at"`
+}
+
+// Tool Marketplace DTOs
+
+// CreateToolRequest represents a tool creation request
+type CreateToolRequest struct {
+	Name           string                   `json:"name" binding:"required"`
+	DisplayName    string                   `json:"display_name" binding:"required"`
+	Description    string                   `json:"description" binding:"required"`
+	Category       string                   `json:"category" binding:"required"`
+	Tags           []string                 `json:"tags"`
+	FunctionSchema map[string]interface{}   `json:"function_schema" binding:"required"`
+	SourceCode     string                   `json:"source_code" binding:"required"`
+	Documentation  string                   `json:"documentation"`
+	Examples       []map[string]interface{} `json:"examples"`
+	Dependencies   []string                 `json:"dependencies"`
+	Requirements   map[string]interface{}   `json:"requirements"`
+	IsPublic       bool                     `json:"is_public"`
+}
+
+// UpdateToolRequest represents a tool update request
+type UpdateToolRequest struct {
+	DisplayName   string                   `json:"display_name"`
+	Description   string                   `json:"description"`
+	Category      string                   `json:"category"`
+	Tags          []string                 `json:"tags"`
+	Documentation string                   `json:"documentation"`
+	Examples      []map[string]interface{} `json:"examples"`
+	IsPublic      bool                     `json:"is_public"`
+}
+
+// CreateToolVersionRequest represents a tool version creation request
+type CreateToolVersionRequest struct {
+	Version        string                 `json:"version" binding:"required"`
+	ChangeLog      string                 `json:"changelog" binding:"required"`
+	FunctionSchema map[string]interface{} `json:"function_schema" binding:"required"`
+	SourceCode     string                 `json:"source_code" binding:"required"`
+	Dependencies   []string               `json:"dependencies"`
+	IsStable       bool                   `json:"is_stable"`
+}
+
+// InstallToolRequest represents a tool installation request
+type InstallToolRequest struct {
+	ToolID        string                 `json:"tool_id" binding:"required"`
+	Version       string                 `json:"version"`
+	Configuration map[string]interface{} `json:"configuration"`
+}
+
+// ToolSearchRequest represents a tool search request
+type ToolSearchRequest struct {
+	Query      string   `json:"query"`
+	Category   string   `json:"category"`
+	Tags       []string `json:"tags"`
+	IsVerified bool     `json:"is_verified"`
+	SortBy     string   `json:"sort_by"`
+	SortOrder  string   `json:"sort_order"`
+	Page       int      `json:"page"`
+	Limit      int      `json:"limit"`
+}
+
+// CreateReviewRequest represents a tool review creation request
+type CreateReviewRequest struct {
+	Rating  int    `json:"rating" binding:"required,min=1,max=5"`
+	Title   string `json:"title" binding:"required"`
+	Comment string `json:"comment" binding:"required"`
+}
+
+// ToolSearchResponse represents a tool search response
+type ToolSearchResponse struct {
+	Tools      []ToolMarketplace `json:"tools"`
+	TotalCount int               `json:"total_count"`
+	Page       int               `json:"page"`
+	Limit      int               `json:"limit"`
+	HasMore    bool              `json:"has_more"`
+}
+
+// ToolDetailsResponse represents a detailed tool response
+type ToolDetailsResponse struct {
+	Tool         ToolMarketplace   `json:"tool"`
+	Versions     []ToolVersion     `json:"versions"`
+	Reviews      []ToolReview      `json:"reviews"`
+	UsageStats   ToolUsageStats    `json:"usage_stats"`
+	IsInstalled  bool              `json:"is_installed"`
+	Installation *ToolInstallation `json:"installation,omitempty"`
+}
+
+// ToolValidationResponse represents a tool validation response
+type ToolValidationResponse struct {
+	IsValid        bool     `json:"is_valid"`
+	SecurityStatus string   `json:"security_status"`
+	ValidationHash string   `json:"validation_hash"`
+	Issues         []string `json:"issues"`
+	Warnings       []string `json:"warnings"`
+}
