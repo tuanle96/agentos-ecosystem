@@ -92,8 +92,8 @@ func main() {
 		protected.DELETE("/agents/:id", h.DeleteAgent)
 
 		// Agent Factory (Week 2 Enhancement)
-		protected.GET("/capabilities/recommendations", h.GetCapabilityRecommendations)
-		protected.POST("/capabilities/validate", h.ValidateCapabilities)
+		protected.GET("/agents/:agent_id/recommendations", h.GetCapabilityRecommendations)
+		protected.POST("/agents/validate-capabilities", h.ValidateCapabilities)
 
 		// Tool Execution (Week 2 Enhancement)
 		protected.GET("/tools/definitions", h.GetToolDefinitions)
@@ -107,12 +107,17 @@ func main() {
 		// Execution management
 		protected.GET("/executions/:id", h.GetExecution)
 		protected.GET("/executions/:id/logs", h.GetExecutionLogs)
+		protected.GET("/executions/agents/:agent_id", h.GetAgentExecutions)
 
 		// Memory management (Week 2 Enhancement)
 		protected.GET("/agents/:id/memory", h.GetAgentMemory)
-		protected.POST("/agents/:id/memory/clear", h.ClearAgentMemory)
-		protected.POST("/agents/:id/memory/session", h.CreateWorkingMemorySession)
-		protected.PUT("/agents/:id/memory/working", h.UpdateWorkingMemory)
+		protected.DELETE("/agents/:id/memory", h.ClearAgentMemory)
+
+		// Enhanced Memory management
+		protected.GET("/memory/agents/:agent_id", h.GetAgentMemoryEnhanced)
+		protected.DELETE("/memory/agents/:agent_id", h.ClearAgentMemoryEnhanced)
+		protected.POST("/memory/working-sessions", h.CreateWorkingMemorySession)
+		protected.PUT("/memory/working-sessions/:session_id", h.UpdateWorkingMemory)
 
 		// User profile
 		protected.GET("/profile", h.GetProfile)

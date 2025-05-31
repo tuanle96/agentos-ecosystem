@@ -57,8 +57,8 @@ func (h *Handler) ListTools(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"tools":            tools,
+		"tools":             tools,
 		"tools_by_category": toolsByCategory,
-		"count":            len(tools),
+		"count":             len(tools),
 	})
 }

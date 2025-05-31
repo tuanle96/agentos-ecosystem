@@ -7,9 +7,11 @@ import (
 
 // CapabilityConflict represents a conflict between capabilities
 type CapabilityConflict struct {
-	Capability1 string
-	Capability2 string
-	Reason      string
+	Capability1  string
+	Capability2  string
+	Reason       string
+	ConflictType string
+	Severity     string
 }
 
 // CapabilityMetadata contains metadata about each capability
@@ -107,9 +109,11 @@ func (h *Handler) detectCapabilityConflicts(capabilities []string) []CapabilityC
 			for _, conflict := range meta1.Conflicts {
 				if conflict == cap2 {
 					conflicts = append(conflicts, CapabilityConflict{
-						Capability1: cap1,
-						Capability2: cap2,
-						Reason:      fmt.Sprintf("%s conflicts with %s", meta1.Description, meta2.Description),
+						Capability1:  cap1,
+						Capability2:  cap2,
+						Reason:       fmt.Sprintf("%s conflicts with %s", meta1.Description, meta2.Description),
+						ConflictType: "security",
+						Severity:     "high",
 					})
 				}
 			}

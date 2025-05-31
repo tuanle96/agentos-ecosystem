@@ -3,6 +3,7 @@ package models
 import (
 	"database/sql/driver"
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -12,6 +13,9 @@ import (
 // JSONB represents a PostgreSQL JSONB field
 type JSONB map[string]interface{}
 
+// CapabilityArray represents an array of capabilities stored as JSON
+type CapabilityArray []string
+
 // Claims represents the JWT claims
 type Claims struct {
 	UserID string `json:"user_id"`
@@ -19,12 +23,12 @@ type Claims struct {
 	jwt.RegisteredClaims
 }
 
-// Value implements the driver.Valuer interface
+// Value implements the driver.Valuer interface for JSONB
 func (j JSONB) Value() (driver.Value, error) {
 	return json.Marshal(j)
 }
 
-// Scan implements the sql.Scanner interface
+// Scan implements the sql.Scanner interface for JSONB
 func (j *JSONB) Scan(value interface{}) error {
 	if value == nil {
 		*j = make(JSONB)
@@ -37,6 +41,31 @@ func (j *JSONB) Scan(value interface{}) error {
 	}
 
 	return json.Unmarshal(bytes, j)
+}
+
+// Value implements the driver.Valuer interface for CapabilityArray
+func (ca CapabilityArray) Value() (driver.Value, error) {
+	return json.Marshal(ca)
+}
+
+// Scan implements the sql.Scanner interface for CapabilityArray
+func (ca *CapabilityArray) Scan(value interface{}) error {
+	if value == nil {
+		*ca = CapabilityArray{}
+		return nil
+	}
+
+	var bytes []byte
+	switch v := value.(type) {
+	case []byte:
+		bytes = v
+	case string:
+		bytes = []byte(v)
+	default:
+		return fmt.Errorf("cannot scan %T into CapabilityArray", value)
+	}
+
+	return json.Unmarshal(bytes, ca)
 }
 
 // User represents a user in the system

@@ -201,6 +201,18 @@ func (suite *TestSuite) makeRequest(method, url string, body interface{}, token 
 	return w
 }
 
+// parseResponse helper function for parsing JSON responses
+func (suite *TestSuite) parseResponse(w *httptest.ResponseRecorder, target interface{}) error {
+	return json.Unmarshal(w.Body.Bytes(), target)
+}
+
+// performRequest helper function for performing raw HTTP requests
+func (suite *TestSuite) performRequest(req *http.Request) *httptest.ResponseRecorder {
+	w := httptest.NewRecorder()
+	suite.router.ServeHTTP(w, req)
+	return w
+}
+
 // TestRunner runs the test suite
 func TestAPISuite(t *testing.T) {
 	suite.Run(t, new(TestSuite))

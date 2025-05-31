@@ -52,7 +52,7 @@ func (suite *TestSuite) TestCreateAgentInvalidCapabilities() {
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	assert.NoError(suite.T(), err)
 
-	assert.Contains(suite.T(), response["error"], "Invalid capability")
+	assert.Contains(suite.T(), response["error"], "invalid capability")
 }
 
 // TestCreateAgentTooManyCapabilities tests agent creation with too many capabilities

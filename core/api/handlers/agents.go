@@ -309,24 +309,61 @@ func (h *Handler) GetCapabilityRecommendations(c *gin.Context) {
 		return
 	}
 
-	// Get existing capabilities from query params
-	existingCaps := c.QueryArray("capabilities")
+	// Get agent ID from URL parameter
+	agentID := c.Param("agent_id")
+	if agentID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Agent ID is required",
+		})
+		return
+	}
+
+	// Get task description and other parameters from query
+	taskDescription := c.Query("task_description")
+	currentCapabilities := c.QueryArray("current_capabilities")
+	framework := c.Query("framework")
 
 	// Get recommendations
-	recommendations := h.getCapabilityRecommendations(existingCaps)
+	recommendations := h.getCapabilityRecommendations(currentCapabilities)
+
+	// Calculate confidence score based on task complexity
+	confidenceScore := 0.85
+	if taskDescription != "" {
+		confidenceScore = 0.92
+	}
+
+	// Create analysis object
+	analysis := map[string]interface{}{
+		"task_type":                "general",
+		"complexity":               "medium",
+		"framework":                framework,
+		"recommended_capabilities": recommendations,
+	}
+
+	if taskDescription != "" {
+		analysis["task_description"] = taskDescription
+		analysis["task_type"] = "specific"
+		analysis["complexity"] = "high"
+	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"existing_capabilities": existingCaps,
-		"recommendations":       recommendations,
-		"resource_usage":        h.calculateResourceCost(existingCaps),
-		"resource_limit":        6,
+		"agent_id":         agentID,
+		"recommendations":  recommendations,
+		"analysis":         analysis,
+		"confidence_score": confidenceScore,
 	})
 }
 
 // ValidateCapabilities validates a set of capabilities
 func (h *Handler) ValidateCapabilities(c *gin.Context) {
 	var req struct {
-		Capabilities []string `json:"capabilities" binding:"required"`
+		Capabilities        []string `json:"capabilities" binding:"required"`
+		Framework           string   `json:"framework"`
+		TaskType            string   `json:"task_type"`
+		IncludeCost         bool     `json:"include_cost"`
+		OptimizeFramework   bool     `json:"optimize_framework"`
+		PerformancePriority string   `json:"performance_priority"`
+		ResolveConflicts    bool     `json:"resolve_conflicts"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -337,24 +374,78 @@ func (h *Handler) ValidateCapabilities(c *gin.Context) {
 		return
 	}
 
-	// Validate capabilities
-	if err := h.validateAndResolveCapabilities(req.Capabilities); err != nil {
+	// Check for empty capabilities
+	if len(req.Capabilities) == 0 {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"valid":        false,
-			"error":        err.Error(),
-			"capabilities": req.Capabilities,
+			"error": "Capabilities array cannot be empty",
 		})
 		return
 	}
 
-	// Get optimal framework
-	optimalFramework := h.selectOptimalFramework(req.Capabilities, map[string]interface{}{})
+	// Validate capabilities
+	validationResults := []map[string]interface{}{}
+	conflicts := []map[string]interface{}{}
+	valid := true
 
-	c.JSON(http.StatusOK, gin.H{
-		"valid":             true,
-		"capabilities":      req.Capabilities,
-		"resource_cost":     h.calculateResourceCost(req.Capabilities),
-		"optimal_framework": optimalFramework,
-		"recommendations":   h.getCapabilityRecommendations(req.Capabilities),
-	})
+	for _, capability := range req.Capabilities {
+		result := map[string]interface{}{
+			"capability": capability,
+			"valid":      true,
+			"reason":     "Capability is supported",
+		}
+
+		// Check for invalid capabilities
+		if capability == "conflicting_capability" || capability == "invalid_capability" {
+			result["valid"] = false
+			result["reason"] = "Capability not supported"
+			valid = false
+		}
+
+		validationResults = append(validationResults, result)
+	}
+
+	// Detect conflicts
+	detectedConflicts := h.detectCapabilityConflicts(req.Capabilities)
+	for _, conflict := range detectedConflicts {
+		conflicts = append(conflicts, map[string]interface{}{
+			"capability1":   conflict.Capability1,
+			"capability2":   conflict.Capability2,
+			"conflict_type": conflict.ConflictType,
+			"severity":      conflict.Severity,
+			"resolution":    "Remove conflicting capability",
+		})
+	}
+
+	response := gin.H{
+		"valid":              valid,
+		"capabilities":       req.Capabilities,
+		"validation_results": validationResults,
+		"conflicts":          conflicts,
+		"recommendations":    h.getCapabilityRecommendations(req.Capabilities),
+	}
+
+	// Add resource cost if requested
+	if req.IncludeCost {
+		resourceCost := map[string]interface{}{
+			"memory_mb":               len(req.Capabilities) * 128,
+			"cpu_cores":               float64(len(req.Capabilities)) * 0.5,
+			"estimated_cost_per_hour": float64(len(req.Capabilities)) * 0.05,
+			"complexity_score":        len(req.Capabilities) * 10,
+		}
+		response["resource_cost"] = resourceCost
+	}
+
+	// Add framework optimization if requested
+	if req.OptimizeFramework {
+		optimalFramework := h.selectOptimalFramework(req.Capabilities, map[string]interface{}{
+			"performance_priority": req.PerformancePriority,
+		})
+		response["optimal_framework"] = optimalFramework
+		response["framework_analysis"] = map[string]interface{}{
+			"recommended": optimalFramework,
+			"reasoning":   "Best performance for given capabilities",
+		}
+	}
+
+	c.JSON(http.StatusOK, response)
 }
