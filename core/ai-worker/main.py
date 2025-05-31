@@ -20,6 +20,21 @@ from typing import Dict, Any, List, Optional
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# LangChain imports
+try:
+    from langchain.agents import initialize_agent, AgentType, Tool
+    from langchain.llms import OpenAI
+    from langchain.memory import ConversationBufferMemory
+    LANGCHAIN_AVAILABLE = True
+except ImportError:
+    LANGCHAIN_AVAILABLE = False
+    Tool = None
+    OpenAI = None
+    ConversationBufferMemory = None
+    initialize_agent = None
+    AgentType = None
+    logger.warning("LangChain not available")
+
 # Multi-framework imports
 try:
     from frameworks import (
@@ -27,7 +42,6 @@ try:
         get_available_frameworks,
         get_framework_capabilities,
         FRAMEWORK_REGISTRY,
-        LANGCHAIN_AVAILABLE,
         SWARMS_AVAILABLE,
         CREWAI_AVAILABLE,
         AUTOGEN_AVAILABLE
@@ -41,7 +55,6 @@ try:
     MULTI_FRAMEWORK_AVAILABLE = True
 except ImportError:
     MULTI_FRAMEWORK_AVAILABLE = False
-    LANGCHAIN_AVAILABLE = False
     SWARMS_AVAILABLE = False
     CREWAI_AVAILABLE = False
     AUTOGEN_AVAILABLE = False
@@ -94,9 +107,11 @@ class LangChainAgentWrapper:
         self.agent = None
         self.memory = None
 
-        if LANGCHAIN_AVAILABLE:
+        if LANGCHAIN_AVAILABLE and OpenAI is not None and ConversationBufferMemory is not None:
             self.llm = OpenAI(temperature=0.7) if os.getenv("OPENAI_API_KEY") else None
             self.memory = ConversationBufferMemory(memory_key="chat_history")
+        else:
+            self.llm = None
 
     async def initialize(self):
         """Initialize LangChain agent with capabilities"""
@@ -113,7 +128,7 @@ class LangChainAgentWrapper:
                 self.tools.append(tool)
 
         # Initialize LangChain agent
-        if self.tools:
+        if self.tools and initialize_agent is not None and AgentType is not None:
             self.agent = initialize_agent(
                 tools=self.tools,
                 llm=self.llm,
@@ -122,7 +137,7 @@ class LangChainAgentWrapper:
                 verbose=True
             )
 
-    async def _capability_to_tool(self, capability: str) -> Optional[Tool]:
+    async def _capability_to_tool(self, capability: str):
         """Convert AgentOS capability to LangChain tool"""
         tool_map = {
             "web_search": self._create_web_search_tool(),
@@ -133,8 +148,11 @@ class LangChainAgentWrapper:
         }
         return tool_map.get(capability)
 
-    def _create_web_search_tool(self) -> Tool:
+    def _create_web_search_tool(self):
         """Create web search tool"""
+        if not LANGCHAIN_AVAILABLE or Tool is None:
+            return None
+
         def web_search(query: str) -> str:
             # Placeholder implementation
             return f"Search results for: {query}"
@@ -145,8 +163,11 @@ class LangChainAgentWrapper:
             func=web_search
         )
 
-    def _create_calculator_tool(self) -> Tool:
+    def _create_calculator_tool(self):
         """Create calculator tool"""
+        if not LANGCHAIN_AVAILABLE or Tool is None:
+            return None
+
         def calculate(expression: str) -> str:
             try:
                 # Safe evaluation of mathematical expressions
@@ -161,8 +182,11 @@ class LangChainAgentWrapper:
             func=calculate
         )
 
-    def _create_text_processing_tool(self) -> Tool:
+    def _create_text_processing_tool(self):
         """Create text processing tool"""
+        if not LANGCHAIN_AVAILABLE or Tool is None:
+            return None
+
         def process_text(text: str) -> str:
             # Basic text processing
             return f"Processed: {text.strip().lower()}"
@@ -173,8 +197,11 @@ class LangChainAgentWrapper:
             func=process_text
         )
 
-    def _create_file_operations_tool(self) -> Tool:
+    def _create_file_operations_tool(self):
         """Create file operations tool"""
+        if not LANGCHAIN_AVAILABLE or Tool is None:
+            return None
+
         def file_operation(operation: str) -> str:
             # Placeholder for secure file operations
             return f"File operation: {operation}"
@@ -185,8 +212,11 @@ class LangChainAgentWrapper:
             func=file_operation
         )
 
-    def _create_api_calls_tool(self) -> Tool:
+    def _create_api_calls_tool(self):
         """Create API calls tool"""
+        if not LANGCHAIN_AVAILABLE or Tool is None:
+            return None
+
         def api_call(url: str) -> str:
             # Placeholder for secure API calls
             return f"API call to: {url}"
@@ -205,7 +235,10 @@ class LangChainAgentWrapper:
         start_time = time.time()
 
         try:
-            result = self.agent.run(task)
+            if self.agent and hasattr(self.agent, 'run'):
+                result = self.agent.run(task)
+            else:
+                result = f"Agent not properly initialized or LangChain not available"
             execution_time = time.time() - start_time
 
             return {
