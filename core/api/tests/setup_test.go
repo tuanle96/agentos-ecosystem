@@ -15,7 +15,6 @@ import (
 
 // Test configuration
 const (
-	testUserID = "test_user_12345"
 	testDBName = "agentos_test"
 )
 
@@ -69,7 +68,7 @@ func setupTestDatabase(t *testing.T) *sql.DB {
 	}
 
 	// Create test tables if needed
-	createTestTables(db, t)
+	createTestTables(t)
 
 	return db
 }
@@ -105,8 +104,8 @@ func setupTestRedis(t *testing.T) *redis.Client {
 	return client
 }
 
-// createTestTables creates necessary test tables
-func createTestTables(db *sql.DB, t *testing.T) {
+// createTestTablesLocal creates necessary test tables (local version to avoid conflicts)
+func createTestTablesLocal(db *sql.DB, t *testing.T) {
 	tables := []string{
 		`CREATE TABLE IF NOT EXISTS users (
 			id SERIAL PRIMARY KEY,
@@ -374,8 +373,8 @@ func createTestUser(db *sql.DB, userID string) error {
 	return err
 }
 
-// cleanupTestData cleans up test data from database
-func cleanupTestData(db *sql.DB, userID string) error {
+// cleanupTestDataLocal cleans up test data from database (local version to avoid conflicts)
+func cleanupTestDataLocal(db *sql.DB, userID string) error {
 	if db == nil {
 		return nil // Skip if no database
 	}

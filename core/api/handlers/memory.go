@@ -1,42 +1,25 @@
 package handlers
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
 	"math"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
+	"github.com/tuanle96/agentos-ecosystem/core/api/models"
 )
 
 // Memory System Implementation - Week 4: Advanced Memory System
-type MemoryEntry struct {
-	ID        string                 `json:"id"`
-	AgentID   string                 `json:"agent_id"`
-	Type      string                 `json:"type"` // working, episodic, semantic
-	Content   map[string]interface{} `json:"content"`
-	Timestamp time.Time              `json:"timestamp"`
-	TTL       int                    `json:"ttl"` // seconds
-}
-
-// Week 4: Semantic Memory Structures
-type SemanticMemoryEntry struct {
-	ID         string    `json:"id"`
-	Content    string    `json:"content"`
-	Embedding  []float32 `json:"embedding,omitempty"`
-	Concepts   []string  `json:"concepts"`
-	Importance float64   `json:"importance"`
-	Framework  string    `json:"framework"`
-	SourceType string    `json:"source_type"`
-	CreatedAt  time.Time `json:"created_at"`
-	UpdatedAt  time.Time `json:"updated_at"`
-}
+// Using models from models package
 
 type MemoryConsolidation struct {
 	ID                 string     `json:"id"`
@@ -56,15 +39,6 @@ type MemoryLink struct {
 	LinkType       string    `json:"link_type"`
 	Strength       float64   `json:"strength"`
 	CreatedAt      time.Time `json:"created_at"`
-}
-
-type WorkingMemory struct {
-	SessionID    string                 `json:"session_id"`
-	AgentID      string                 `json:"agent_id"`
-	Context      map[string]interface{} `json:"context"`
-	Variables    map[string]interface{} `json:"variables"`
-	LastActivity time.Time              `json:"last_activity"`
-	ExpiresAt    time.Time              `json:"expires_at"`
 }
 
 // Redis keys for memory management
@@ -96,7 +70,7 @@ func (h *Handler) GetAgentMemoryEnhanced(c *gin.Context) {
 	}
 
 	// Get working memory from Redis
-	workingMemory, err := h.getWorkingMemory(agentID)
+	workingMemory, err := h.getWorkingMemoryData(agentID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": "Failed to retrieve working memory",
@@ -105,7 +79,7 @@ func (h *Handler) GetAgentMemoryEnhanced(c *gin.Context) {
 	}
 
 	// Get episodic memories from database
-	episodicMemories, err := h.getEpisodicMemories(agentID)
+	episodicMemories, err := h.getEpisodicMemoriesData(agentID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": "Failed to retrieve episodic memories",
@@ -192,7 +166,7 @@ func (h *Handler) CreateWorkingMemorySession(c *gin.Context) {
 
 	// Create new working memory session
 	sessionID := uuid.New().String()
-	workingMemory := WorkingMemory{
+	workingMemory := models.WorkingMemory{
 		SessionID:    sessionID,
 		AgentID:      agentID,
 		Context:      make(map[string]interface{}),
@@ -202,7 +176,7 @@ func (h *Handler) CreateWorkingMemorySession(c *gin.Context) {
 	}
 
 	// Store in Redis
-	err := h.storeWorkingMemory(agentID, workingMemory)
+	err := h.storeWorkingMemoryData(agentID, workingMemory)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": "Failed to create working memory session",
@@ -243,7 +217,7 @@ func (h *Handler) UpdateWorkingMemory(c *gin.Context) {
 	}
 
 	// Get existing working memory
-	workingMemory, err := h.getWorkingMemory(agentID)
+	workingMemory, err := h.getWorkingMemoryData(agentID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": "Failed to retrieve working memory",
@@ -267,7 +241,7 @@ func (h *Handler) UpdateWorkingMemory(c *gin.Context) {
 	workingMemory.LastActivity = time.Now()
 
 	// Store updated memory
-	err = h.storeWorkingMemory(agentID, workingMemory)
+	err = h.storeWorkingMemoryData(agentID, workingMemory)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": "Failed to update working memory",
@@ -294,14 +268,14 @@ func (h *Handler) validateAgentOwnership(agentID, userID string) bool {
 	return err == nil && count > 0
 }
 
-func (h *Handler) getWorkingMemory(agentID string) (WorkingMemory, error) {
+func (h *Handler) getWorkingMemoryData(agentID string) (models.WorkingMemory, error) {
 	ctx := context.Background()
 	key := WorkingMemoryPrefix + agentID
 
 	val, err := h.redis.Get(ctx, key).Result()
 	if err == redis.Nil {
 		// Return empty working memory if not found
-		return WorkingMemory{
+		return models.WorkingMemory{
 			SessionID:    uuid.New().String(),
 			AgentID:      agentID,
 			Context:      make(map[string]interface{}),
@@ -311,15 +285,15 @@ func (h *Handler) getWorkingMemory(agentID string) (WorkingMemory, error) {
 		}, nil
 	}
 	if err != nil {
-		return WorkingMemory{}, err
+		return models.WorkingMemory{}, err
 	}
 
-	var workingMemory WorkingMemory
+	var workingMemory models.WorkingMemory
 	err = json.Unmarshal([]byte(val), &workingMemory)
 	return workingMemory, err
 }
 
-func (h *Handler) storeWorkingMemory(agentID string, memory WorkingMemory) error {
+func (h *Handler) storeWorkingMemoryData(agentID string, memory models.WorkingMemory) error {
 	ctx := context.Background()
 	key := WorkingMemoryPrefix + agentID
 
@@ -339,7 +313,7 @@ func (h *Handler) clearWorkingMemory(agentID string) error {
 	return h.redis.Del(ctx, key).Err()
 }
 
-func (h *Handler) getEpisodicMemories(agentID string) ([]MemoryEntry, error) {
+func (h *Handler) getEpisodicMemoriesData(agentID string) ([]models.MemoryEntry, error) {
 	rows, err := h.db.Query(`
 		SELECT id, content, created_at FROM memories
 		WHERE agent_id = $1 AND type = 'episodic'
@@ -351,9 +325,9 @@ func (h *Handler) getEpisodicMemories(agentID string) ([]MemoryEntry, error) {
 	}
 	defer rows.Close()
 
-	var memories []MemoryEntry
+	var memories []models.MemoryEntry
 	for rows.Next() {
-		var memory MemoryEntry
+		var memory models.MemoryEntry
 		var contentJSON []byte
 
 		err := rows.Scan(&memory.ID, &contentJSON, &memory.Timestamp)
@@ -508,7 +482,7 @@ func (h *Handler) generateEmbedding(text string) []float32 {
 }
 
 // performSemanticSearch performs vector similarity search
-func (h *Handler) performSemanticSearch(userID string, queryEmbedding []float32, framework string, limit int, threshold float64) ([]SemanticMemoryEntry, error) {
+func (h *Handler) performSemanticSearch(userID string, queryEmbedding []float32, framework string, limit int, threshold float64) ([]models.SemanticMemoryEntry, error) {
 	query := `
 		SELECT id, content, embedding, concepts, importance, framework, source_type, created_at, updated_at
 		FROM semantic_memories sm
@@ -532,9 +506,9 @@ func (h *Handler) performSemanticSearch(userID string, queryEmbedding []float32,
 	}
 	defer rows.Close()
 
-	var memories []SemanticMemoryEntry
+	var memories []models.SemanticMemoryEntry
 	for rows.Next() {
-		var memory SemanticMemoryEntry
+		var memory models.SemanticMemoryEntry
 		var embeddingBytes []byte
 		var conceptsJSON []byte
 
@@ -870,22 +844,8 @@ func (h *Handler) performMemoryConsolidation(consolidationID, userID, framework 
 		WHERE id = $1
 	`, consolidationID)
 
-	// Simulate consolidation process (in production, would call Python consolidation engine)
-	time.Sleep(2 * time.Second) // Simulate processing time
-
-	// Mock consolidation results
-	episodicCount := 15
-	semanticCount := 3
-	consolidationScore := 0.75
-
-	// Update consolidation record with results
-	_, err := h.db.Exec(`
-		UPDATE memory_consolidations
-		SET episodic_count = $1, semantic_count = $2, consolidation_score = $3,
-		    completed_at = NOW(), status = 'completed'
-		WHERE id = $4
-	`, episodicCount, semanticCount, consolidationScore, consolidationID)
-
+	// Call real Python consolidation engine
+	episodicCount, semanticCount, consolidationScore, err := h.callPythonConsolidationEngine(userID, framework, timeWindowHours)
 	if err != nil {
 		// Mark as failed
 		h.db.Exec(`
@@ -893,6 +853,24 @@ func (h *Handler) performMemoryConsolidation(consolidationID, userID, framework 
 			SET status = 'failed', error_message = $1
 			WHERE id = $2
 		`, err.Error(), consolidationID)
+		return
+	}
+
+	// Update consolidation record with results
+	_, updateErr := h.db.Exec(`
+		UPDATE memory_consolidations
+		SET episodic_count = $1, semantic_count = $2, consolidation_score = $3,
+		    completed_at = NOW(), status = 'completed'
+		WHERE id = $4
+	`, episodicCount, semanticCount, consolidationScore, consolidationID)
+
+	if updateErr != nil {
+		// Mark as failed
+		h.db.Exec(`
+			UPDATE memory_consolidations
+			SET status = 'failed', error_message = $1
+			WHERE id = $2
+		`, updateErr.Error(), consolidationID)
 	}
 }
 
@@ -953,7 +931,7 @@ func (h *Handler) getFrameworkMemoryStats(userID, framework string) (map[string]
 }
 
 // getRecentFrameworkMemories gets recent memories for a framework
-func (h *Handler) getRecentFrameworkMemories(userID, framework string, limit int) ([]SemanticMemoryEntry, error) {
+func (h *Handler) getRecentFrameworkMemories(userID, framework string, limit int) ([]models.SemanticMemoryEntry, error) {
 	query := `
 		SELECT sm.id, sm.content, sm.concepts, sm.importance, sm.framework,
 		       sm.source_type, sm.created_at, sm.updated_at
@@ -969,9 +947,9 @@ func (h *Handler) getRecentFrameworkMemories(userID, framework string, limit int
 	}
 	defer rows.Close()
 
-	var memories []SemanticMemoryEntry
+	var memories []models.SemanticMemoryEntry
 	for rows.Next() {
-		var memory SemanticMemoryEntry
+		var memory models.SemanticMemoryEntry
 		var conceptsJSON []byte
 
 		err := rows.Scan(
@@ -1135,4 +1113,62 @@ func (h *Handler) callMem0Consolidate(userID, framework string) (map[string]inte
 	}
 
 	return result, nil
+}
+
+// callPythonConsolidationEngine calls the Python consolidation engine for real memory consolidation
+func (h *Handler) callPythonConsolidationEngine(userID, framework string, timeWindowHours float64) (int, int, float64, error) {
+	// Prepare request to Python AI Worker consolidation endpoint
+	requestBody := map[string]interface{}{
+		"user_id":            userID,
+		"framework":          framework,
+		"time_window_hours":  timeWindowHours,
+		"consolidation_type": "full",
+	}
+
+	jsonData, err := json.Marshal(requestBody)
+	if err != nil {
+		return 0, 0, 0.0, fmt.Errorf("failed to marshal consolidation request: %v", err)
+	}
+
+	// Create HTTP client with timeout
+	client := &http.Client{Timeout: 60 * time.Second}
+
+	// Call Python AI Worker consolidation endpoint
+	aiWorkerURL := os.Getenv("AI_WORKER_URL")
+	if aiWorkerURL == "" {
+		aiWorkerURL = "http://localhost:8080" // Default for development
+	}
+
+	resp, err := client.Post(
+		aiWorkerURL+"/consolidate",
+		"application/json",
+		bytes.NewBuffer(jsonData),
+	)
+	if err != nil {
+		return 0, 0, 0.0, fmt.Errorf("failed to call consolidation engine: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return 0, 0, 0.0, fmt.Errorf("consolidation engine returned status %d", resp.StatusCode)
+	}
+
+	// Parse response
+	var result struct {
+		EpisodicCount      int     `json:"episodic_count"`
+		SemanticCount      int     `json:"semantic_count"`
+		ConsolidationScore float64 `json:"consolidation_score"`
+		Success            bool    `json:"success"`
+		Message            string  `json:"message"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return 0, 0, 0.0, fmt.Errorf("failed to decode consolidation response: %v", err)
+	}
+
+	if !result.Success {
+		return 0, 0, 0.0, fmt.Errorf("consolidation failed: %s", result.Message)
+	}
+
+	return result.EpisodicCount, result.SemanticCount, result.ConsolidationScore, nil
 }

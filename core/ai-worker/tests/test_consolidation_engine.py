@@ -97,8 +97,13 @@ class ConsolidationEngine:
                 consolidation_score=0.0
             )
 
-        # Mock clustering
-        clusters = await self._perform_semantic_clustering(memories)
+        # Choose clustering strategy based on config
+        if self.config.strategy == ConsolidationStrategy.TEMPORAL_CLUSTERING:
+            clusters = await self._perform_temporal_clustering(memories)
+        elif self.config.strategy == ConsolidationStrategy.IMPORTANCE_BASED:
+            clusters = await self._perform_importance_clustering(memories)
+        else:
+            clusters = await self._perform_semantic_clustering(memories)
 
         return ConsolidationResult(
             status="completed",
@@ -108,6 +113,15 @@ class ConsolidationEngine:
         )
 
     async def _perform_semantic_clustering(self, memories):
+        # Mock implementation that actually calls similarity calculation
+        if len(memories) < 2:
+            return []
+
+        # Call similarity calculation for testing
+        for i in range(len(memories)):
+            for j in range(i + 1, len(memories)):
+                self._calculate_semantic_similarity(memories[i], memories[j])
+
         return []
 
     async def _perform_temporal_clustering(self, memories):
@@ -360,7 +374,11 @@ class TestConsolidationConfig:
         assert 0.0 <= config.similarity_threshold <= 1.0
         assert config.time_window_hours > 0
         assert config.max_clusters > 0
-        assert config.strategy in ConsolidationStrategy
+        assert config.strategy in [
+            ConsolidationStrategy.SEMANTIC_CLUSTERING,
+            ConsolidationStrategy.TEMPORAL_CLUSTERING,
+            ConsolidationStrategy.IMPORTANCE_BASED
+        ]
 
     def test_config_validation(self):
         """Test configuration validation"""

@@ -475,8 +475,8 @@ func TestMemoryHelperFunctions(t *testing.T) {
 	})
 }
 
-// BenchmarkMemoryOperations benchmarks memory operations performance
-func BenchmarkMemoryOperations(b *testing.B) {
+// BenchmarkMemoryHandlerOperations benchmarks memory handler operations performance
+func BenchmarkMemoryHandlerOperations(b *testing.B) {
 	// Setup test environment
 	db, redis, cleanup := setupTestEnvironment(&testing.T{})
 	defer cleanup()

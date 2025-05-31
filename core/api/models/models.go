@@ -200,3 +200,35 @@ type ExecuteAgentResponse struct {
 	Status          string    `json:"status"`
 	CreatedAt       time.Time `json:"created_at"`
 }
+
+// WorkingMemory represents working memory session data
+type WorkingMemory struct {
+	SessionID    string                 `json:"session_id"`
+	AgentID      string                 `json:"agent_id"`
+	Variables    map[string]interface{} `json:"variables"`
+	Context      map[string]interface{} `json:"context"`
+	LastActivity time.Time              `json:"last_activity"`
+	ExpiresAt    time.Time              `json:"expires_at"`
+}
+
+// MemoryEntry represents a memory entry
+type MemoryEntry struct {
+	ID        string                 `json:"id"`
+	AgentID   string                 `json:"agent_id"`
+	Type      string                 `json:"type"`
+	Content   map[string]interface{} `json:"content"`
+	Timestamp time.Time              `json:"timestamp"`
+}
+
+// SemanticMemoryEntry represents a semantic memory entry
+type SemanticMemoryEntry struct {
+	ID         string    `json:"id"`
+	Content    string    `json:"content"`
+	Embedding  []float32 `json:"embedding,omitempty"`
+	Concepts   []string  `json:"concepts"`
+	Importance float64   `json:"importance"`
+	Framework  string    `json:"framework"`
+	SourceType string    `json:"source_type"`
+	CreatedAt  time.Time `json:"created_at"`
+	UpdatedAt  time.Time `json:"updated_at"`
+}

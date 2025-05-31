@@ -12,7 +12,7 @@ import time
 import asyncio
 from abc import ABC, abstractmethod
 from typing import Dict, Any, List, Optional, Union
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from enum import Enum
 
 class FrameworkType(str, Enum):
@@ -33,6 +33,20 @@ class AgentConfig(BaseModel):
     timeout: int = 300  # 5 minutes default
     temperature: float = 0.7
     model: str = "gpt-3.5-turbo"
+
+    @field_validator('name')
+    @classmethod
+    def name_must_not_be_empty(cls, v):
+        if not v or not v.strip():
+            raise ValueError('Agent name cannot be empty')
+        return v
+
+    @field_validator('description')
+    @classmethod
+    def description_must_not_be_empty(cls, v):
+        if not v or not v.strip():
+            raise ValueError('Agent description cannot be empty')
+        return v
 
 class TaskRequest(BaseModel):
     """Universal task request format"""
@@ -56,11 +70,11 @@ class TaskResponse(BaseModel):
 class BaseFrameworkWrapper(ABC):
     """
     Abstract base class for all framework wrappers.
-    
+
     This ensures consistent interface across all AI frameworks while allowing
     framework-specific implementations and optimizations.
     """
-    
+
     def __init__(self, agent_config: AgentConfig):
         self.agent_config = agent_config
         self.agent_id = str(uuid.uuid4())
@@ -70,52 +84,52 @@ class BaseFrameworkWrapper(ABC):
         self.agent = None
         self.memory = None
         self.created_at = time.time()
-        
+
     @abstractmethod
     def _get_framework_type(self) -> FrameworkType:
         """Return the framework type for this wrapper"""
         pass
-    
+
     @abstractmethod
     async def initialize(self) -> bool:
         """
         Initialize the framework-specific agent.
-        
+
         Returns:
             bool: True if initialization successful, False otherwise
         """
         pass
-    
+
     @abstractmethod
     async def execute(self, task_request: TaskRequest) -> TaskResponse:
         """
         Execute a task using the framework-specific agent.
-        
+
         Args:
             task_request: Universal task request
-            
+
         Returns:
             TaskResponse: Universal task response
         """
         pass
-    
+
     @abstractmethod
     async def cleanup(self) -> bool:
         """
         Clean up framework-specific resources.
-        
+
         Returns:
             bool: True if cleanup successful, False otherwise
         """
         pass
-    
+
     # Common utility methods
     async def _capability_to_tool(self, capability: str) -> Optional[Any]:
         """Convert AgentOS capability to framework-specific tool"""
         # Base implementation - override in specific wrappers
         return None
-    
-    def _create_task_response(self, task_id: str, result: Any, status: str, 
+
+    def _create_task_response(self, task_id: str, result: Any, status: str,
                             execution_time: float, error_message: str = None,
                             metadata: Dict[str, Any] = None) -> TaskResponse:
         """Create standardized task response"""
@@ -129,14 +143,14 @@ class BaseFrameworkWrapper(ABC):
             metadata=metadata or {},
             error_message=error_message
         )
-    
+
     async def _execute_with_timeout(self, coro, timeout: int) -> Any:
         """Execute coroutine with timeout"""
         try:
             return await asyncio.wait_for(coro, timeout=timeout)
         except asyncio.TimeoutError:
             raise TimeoutError(f"Task execution timed out after {timeout} seconds")
-    
+
     def get_agent_info(self) -> Dict[str, Any]:
         """Get agent information"""
         return {
@@ -150,7 +164,7 @@ class BaseFrameworkWrapper(ABC):
             "created_at": self.created_at,
             "uptime": time.time() - self.created_at
         }
-    
+
     def get_performance_metrics(self) -> Dict[str, Any]:
         """Get performance metrics for this agent"""
         return {
@@ -161,7 +175,7 @@ class BaseFrameworkWrapper(ABC):
             "memory_usage": self._get_memory_usage(),
             "tools_available": len(self.tools)
         }
-    
+
     def _get_memory_usage(self) -> Dict[str, Any]:
         """Get memory usage statistics - override in specific wrappers"""
         return {

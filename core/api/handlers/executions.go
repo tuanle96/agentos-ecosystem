@@ -356,7 +356,7 @@ func (h *Handler) GetExecutionLogs(c *gin.Context) {
 	})
 }
 
-// GetAgentMemory returns memory for an agent (placeholder for MVP)
+// GetAgentMemory returns memory for an agent with real database integration
 func (h *Handler) GetAgentMemory(c *gin.Context) {
 	userID := c.GetString("user_id")
 	agentID := c.Param("id")
@@ -368,21 +368,27 @@ func (h *Handler) GetAgentMemory(c *gin.Context) {
 		return
 	}
 
-	// For MVP, return empty memory
-	// In Week 5-6, this will integrate with actual memory system
-	c.JSON(http.StatusOK, gin.H{
-		"agent_id":        agentID,
-		"working_memory":  []interface{}{},
-		"episodic_memory": []interface{}{},
-		"memory_stats": map[string]interface{}{
-			"total_memories": 0,
-			"working_size":   0,
-			"episodic_size":  0,
-		},
-	})
+	// Validate agent ownership
+	if !h.validateAgentOwnership(agentID, userID) {
+		c.JSON(http.StatusNotFound, gin.H{
+			"error": "Agent not found",
+		})
+		return
+	}
+
+	// Get real memory data from database
+	memory, err := h.getAgentMemoryFromDB(agentID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to retrieve agent memory",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, memory)
 }
 
-// ClearAgentMemory clears memory for an agent (placeholder for MVP)
+// ClearAgentMemory clears memory for an agent with real database operations
 func (h *Handler) ClearAgentMemory(c *gin.Context) {
 	userID := c.GetString("user_id")
 	agentID := c.Param("id")
@@ -394,10 +400,128 @@ func (h *Handler) ClearAgentMemory(c *gin.Context) {
 		return
 	}
 
-	// For MVP, just return success
-	// In Week 5-6, this will actually clear memory
+	// Validate agent ownership
+	if !h.validateAgentOwnership(agentID, userID) {
+		c.JSON(http.StatusNotFound, gin.H{
+			"error": "Agent not found",
+		})
+		return
+	}
+
+	// Clear real memory data from database
+	err := h.clearAgentMemoryFromDB(agentID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to clear agent memory",
+		})
+		return
+	}
+
 	c.JSON(http.StatusOK, gin.H{
-		"message":  "Agent memory cleared successfully",
-		"agent_id": agentID,
+		"message":    "Agent memory cleared successfully",
+		"agent_id":   agentID,
+		"cleared_at": time.Now(),
 	})
+}
+
+// getAgentMemoryFromDB retrieves agent memory from database
+func (h *Handler) getAgentMemoryFromDB(agentID string) (map[string]interface{}, error) {
+	// Query working memory (recent conversations)
+	workingMemory, err := h.getWorkingMemory(agentID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get working memory: %v", err)
+	}
+
+	// Query episodic memory (stored memories)
+	episodicMemory, err := h.getEpisodicMemory(agentID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get episodic memory: %v", err)
+	}
+
+	// Calculate memory statistics
+	stats := map[string]interface{}{
+		"total_memories": len(workingMemory) + len(episodicMemory),
+		"working_size":   len(workingMemory),
+		"episodic_size":  len(episodicMemory),
+		"last_updated":   time.Now(),
+	}
+
+	return map[string]interface{}{
+		"agent_id":        agentID,
+		"working_memory":  workingMemory,
+		"episodic_memory": episodicMemory,
+		"memory_stats":    stats,
+	}, nil
+}
+
+// getWorkingMemory retrieves recent conversations for working memory
+func (h *Handler) getWorkingMemory(agentID string) ([]map[string]interface{}, error) {
+	rows, err := h.db.Query(`
+		SELECT id, input_text, output_text, started_at, completed_at
+		FROM executions
+		WHERE agent_id = $1 AND status = 'completed'
+		ORDER BY started_at DESC
+		LIMIT 10
+	`, agentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var memories []map[string]interface{}
+	for rows.Next() {
+		var id, input, output string
+		var startedAt, completedAt time.Time
+
+		err := rows.Scan(&id, &input, &output, &startedAt, &completedAt)
+		if err != nil {
+			continue
+		}
+
+		memories = append(memories, map[string]interface{}{
+			"id":           id,
+			"type":         "conversation",
+			"input":        input,
+			"output":       output,
+			"started_at":   startedAt,
+			"completed_at": completedAt,
+		})
+	}
+
+	return memories, nil
+}
+
+// getEpisodicMemory retrieves stored episodic memories
+func (h *Handler) getEpisodicMemory(agentID string) ([]map[string]interface{}, error) {
+	// For now, return empty array as episodic memory system is not fully implemented
+	// This would integrate with the memory consolidation system in the future
+	return []map[string]interface{}{}, nil
+}
+
+// clearAgentMemoryFromDB clears agent memory from database
+func (h *Handler) clearAgentMemoryFromDB(agentID string) error {
+	// Clear execution history (working memory)
+	_, err := h.db.Exec(`
+		DELETE FROM executions
+		WHERE agent_id = $1
+	`, agentID)
+	if err != nil {
+		return fmt.Errorf("failed to clear execution history: %v", err)
+	}
+
+	// Clear tool executions
+	_, err = h.db.Exec(`
+		DELETE FROM tool_executions
+		WHERE user_id IN (
+			SELECT user_id FROM agents WHERE id = $1
+		)
+	`, agentID)
+	if err != nil {
+		return fmt.Errorf("failed to clear tool executions: %v", err)
+	}
+
+	// In the future, this would also clear episodic memory from memory system
+	// For now, we've cleared the main conversation history
+
+	return nil
 }

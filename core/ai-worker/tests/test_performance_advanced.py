@@ -23,9 +23,9 @@ class TestAdvancedPerformance:
         start_time = time.time()
         response = self.client.get("/health")
         end_time = time.time()
-        
+
         response_time = end_time - start_time
-        
+
         assert response.status_code == 200
         assert response_time < 0.1  # Should respond within 100ms
 
@@ -34,9 +34,9 @@ class TestAdvancedPerformance:
         start_time = time.time()
         response = self.client.get("/framework/status")
         end_time = time.time()
-        
+
         response_time = end_time - start_time
-        
+
         assert response.status_code == 200
         assert response_time < 0.1  # Should respond within 100ms
 
@@ -45,9 +45,9 @@ class TestAdvancedPerformance:
         start_time = time.time()
         response = self.client.get("/tools")
         end_time = time.time()
-        
+
         response_time = end_time - start_time
-        
+
         assert response.status_code == 200
         assert response_time < 0.1  # Should respond within 100ms
 
@@ -56,16 +56,16 @@ class TestAdvancedPerformance:
         # Add multiple agents to test performance
         for i in range(50):
             main.agent_registry[f"agent-{i}"] = MagicMock()
-        
+
         start_time = time.time()
         response = self.client.get("/agents")
         end_time = time.time()
-        
+
         response_time = end_time - start_time
-        
+
         assert response.status_code == 200
         assert response_time < 0.2  # Should handle 50 agents within 200ms
-        
+
         data = response.json()
         assert data["count"] == 50
 
@@ -74,12 +74,12 @@ class TestAdvancedPerformance:
         def make_health_request():
             response = self.client.get("/health")
             return response.status_code == 200
-        
+
         # Test with 100 concurrent requests
         with ThreadPoolExecutor(max_workers=20) as executor:
             futures = [executor.submit(make_health_request) for _ in range(100)]
             results = [future.result() for future in futures]
-        
+
         # All requests should succeed
         assert all(results)
         assert len(results) == 100
@@ -89,25 +89,28 @@ class TestAdvancedPerformance:
         def make_status_request():
             response = self.client.get("/framework/status")
             return response.status_code == 200 and "framework" in response.json()
-        
+
         # Test with 50 concurrent requests
         with ThreadPoolExecutor(max_workers=10) as executor:
             futures = [executor.submit(make_status_request) for _ in range(50)]
             results = [future.result() for future in futures]
-        
+
         # All requests should succeed
         assert all(results)
         assert len(results) == 50
 
     def test_memory_usage_with_many_agents(self):
         """Test memory usage doesn't grow excessively with many agents"""
-        import psutil
+        try:
+            import psutil
+        except ImportError:
+            pytest.skip("psutil not available for memory testing")
         import os
-        
+
         # Get initial memory usage
         process = psutil.Process(os.getpid())
         initial_memory = process.memory_info().rss / 1024 / 1024  # MB
-        
+
         # Create many mock agents
         for i in range(100):
             mock_wrapper = MagicMock()
@@ -118,14 +121,14 @@ class TestAdvancedPerformance:
             mock_wrapper.tools = [MagicMock()]
             mock_wrapper.agent = MagicMock()
             main.agent_registry[f"agent-{i}"] = mock_wrapper
-        
+
         # Get memory usage after creating agents
         final_memory = process.memory_info().rss / 1024 / 1024  # MB
         memory_increase = final_memory - initial_memory
-        
+
         # Memory increase should be reasonable (less than 50MB for 100 agents)
         assert memory_increase < 50
-        
+
         # Test that we can still make requests efficiently
         response = self.client.get("/agents")
         assert response.status_code == 200
@@ -151,7 +154,7 @@ class TestConcurrentAgentOperations:
             }
             for i in range(10)
         ]
-        
+
         def create_agent(config):
             with patch('main.LANGCHAIN_AVAILABLE', True):
                 with patch.dict('os.environ', {'OPENAI_API_KEY': 'test-key'}):
@@ -161,15 +164,15 @@ class TestConcurrentAgentOperations:
                         mock_wrapper.tools = [MagicMock()]
                         mock_wrapper.initialize = AsyncMock()
                         mock_wrapper_class.return_value = mock_wrapper
-                        
+
                         response = self.client.post("/agents/create", json=config)
                         return response.status_code == 200
-        
+
         # Create agents concurrently
         with ThreadPoolExecutor(max_workers=5) as executor:
             futures = [executor.submit(create_agent, config) for config in agent_configs]
             results = [future.result() for future in futures]
-        
+
         # All creations should succeed
         assert all(results)
 
@@ -181,24 +184,24 @@ class TestConcurrentAgentOperations:
             mock_config.name = f"Test Agent {i}"
             mock_config.description = f"Description {i}"
             mock_config.capabilities = ["calculations"]
-            
+
             mock_wrapper = MagicMock()
             mock_wrapper.agent_config = mock_config
             mock_wrapper.tools = [MagicMock()]
             mock_wrapper.agent = MagicMock()
-            
+
             main.agent_registry[f"agent-{i}"] = mock_wrapper
-        
+
         def get_agent(agent_id):
             response = self.client.get(f"/agents/{agent_id}")
             return response.status_code == 200
-        
+
         # Retrieve agents concurrently
         agent_ids = [f"agent-{i}" for i in range(10)]
         with ThreadPoolExecutor(max_workers=5) as executor:
             futures = [executor.submit(get_agent, agent_id) for agent_id in agent_ids]
             results = [future.result() for future in futures]
-        
+
         # All retrievals should succeed
         assert all(results)
 
@@ -207,20 +210,20 @@ class TestConcurrentAgentOperations:
         # Create test agents
         for i in range(10):
             main.agent_registry[f"delete-agent-{i}"] = MagicMock()
-        
+
         def delete_agent(agent_id):
             response = self.client.delete(f"/agents/{agent_id}")
             return response.status_code == 200
-        
+
         # Delete agents concurrently
         agent_ids = [f"delete-agent-{i}" for i in range(10)]
         with ThreadPoolExecutor(max_workers=5) as executor:
             futures = [executor.submit(delete_agent, agent_id) for agent_id in agent_ids]
             results = [future.result() for future in futures]
-        
+
         # All deletions should succeed
         assert all(results)
-        
+
         # Registry should be empty
         assert len(main.agent_registry) == 0
 
@@ -237,23 +240,23 @@ class TestConcurrentAgentOperations:
             "agent_id": "test-agent",
             "framework": "langchain"
         })
-        
+
         main.agent_registry["test-agent"] = mock_wrapper
-        
+
         async def execute_task(task_num):
             task_request = {
                 "agent_id": "test-agent",
                 "task": f"Task {task_num}",
                 "context": {"task_number": task_num}
             }
-            
+
             response = self.client.post("/agents/test-agent/execute", json=task_request)
             return response.status_code == 200
-        
+
         # Execute tasks concurrently
         tasks = [execute_task(i) for i in range(20)]
         results = await asyncio.gather(*tasks)
-        
+
         # All executions should succeed
         assert all(results)
         assert len(results) == 20
@@ -270,18 +273,18 @@ class TestStressTests:
     def test_rapid_health_checks(self):
         """Test rapid successive health checks"""
         start_time = time.time()
-        
+
         # Make 1000 rapid health checks
         for _ in range(1000):
             response = self.client.get("/health")
             assert response.status_code == 200
-        
+
         end_time = time.time()
         total_time = end_time - start_time
-        
+
         # Should complete 1000 requests in reasonable time (less than 10 seconds)
         assert total_time < 10.0
-        
+
         # Average response time should be reasonable
         avg_response_time = total_time / 1000
         assert avg_response_time < 0.01  # Less than 10ms average
@@ -298,16 +301,16 @@ class TestStressTests:
             mock_wrapper.tools = [MagicMock()]
             mock_wrapper.agent = MagicMock()
             main.agent_registry[f"agent-{i}"] = mock_wrapper
-        
+
         # Test listing agents with large registry
         start_time = time.time()
         response = self.client.get("/agents")
         end_time = time.time()
-        
+
         assert response.status_code == 200
         assert response.json()["count"] == 500
         assert (end_time - start_time) < 1.0  # Should complete within 1 second
-        
+
         # Test getting specific agents
         for i in range(0, 500, 50):  # Test every 50th agent
             response = self.client.get(f"/agents/agent-{i}")
@@ -319,12 +322,12 @@ class TestStressTests:
             # Try to get non-existent agent
             response = self.client.get("/agents/nonexistent-agent")
             return response.status_code == 404
-        
+
         # Make many concurrent failing requests
         with ThreadPoolExecutor(max_workers=20) as executor:
             futures = [executor.submit(make_failing_request) for _ in range(200)]
             results = [future.result() for future in futures]
-        
+
         # All should properly return 404
         assert all(results)
         assert len(results) == 200
@@ -334,7 +337,7 @@ class TestStressTests:
         # Add some agents
         for i in range(20):
             main.agent_registry[f"load-agent-{i}"] = MagicMock()
-        
+
         def mixed_operations():
             operations = [
                 lambda: self.client.get("/health"),
@@ -343,18 +346,18 @@ class TestStressTests:
                 lambda: self.client.get("/framework/status"),
                 lambda: self.client.get(f"/agents/load-agent-{time.time() % 20:.0f}"),
             ]
-            
+
             # Perform random operations
             import random
             operation = random.choice(operations)
             response = operation()
             return response.status_code in [200, 404]  # 404 is acceptable for some operations
-        
+
         # Perform mixed operations concurrently
         with ThreadPoolExecutor(max_workers=15) as executor:
             futures = [executor.submit(mixed_operations) for _ in range(300)]
             results = [future.result() for future in futures]
-        
+
         # Most operations should succeed
         success_rate = sum(results) / len(results)
         assert success_rate > 0.95  # At least 95% success rate

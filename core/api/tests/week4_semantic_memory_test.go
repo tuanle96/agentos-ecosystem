@@ -122,7 +122,7 @@ func TestStoreSemanticMemory(t *testing.T) {
 		{
 			name: "Memory with defaults",
 			requestBody: map[string]interface{}{
-				"content": "Deep learning uses multiple layers of neural networks",
+				"content":  "Deep learning uses multiple layers of neural networks",
 				"concepts": []string{"deep learning", "neural networks"},
 			},
 			expectedStatus: http.StatusCreated,
@@ -379,7 +379,8 @@ func TestSemanticMemoryIntegration(t *testing.T) {
 
 		memories, ok := response["memories"].([]interface{})
 		assert.True(t, ok)
-		
+		assert.NotNil(t, memories) // Use the memories variable
+
 		// Should find some related memories
 		count, ok := response["count"].(float64)
 		assert.True(t, ok)
