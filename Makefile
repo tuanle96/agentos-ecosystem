@@ -217,3 +217,50 @@ setup-full: deps install-tools env-example ## Full setup with tools installation
 	@echo "2. Run 'make dev-services' to start infrastructure"
 	@echo "3. Run 'make migrate-up' to setup database"
 	@echo "4. Run 'make dev' to start development environment"
+
+# Week 4 Advanced Memory System Testing
+test-week4: ## Run all Week 4 memory system tests
+	@echo "🧠 Running Week 4 Advanced Memory System Tests..."
+	chmod +x scripts/run_week4_tests.sh
+	./scripts/run_week4_tests.sh
+
+test-week4-go: ## Run Week 4 Go memory tests
+	@echo "🔧 Running Week 4 Go Memory Tests..."
+	cd core/api && go test -v -race ./tests/memory_handlers_unit_test.go ./tests/setup_test.go
+	cd core/api && go test -v -race ./tests/memory_integration_test.go ./tests/setup_test.go
+
+test-week4-python: ## Run Week 4 Python memory tests
+	@echo "🐍 Running Week 4 Python Memory Tests..."
+	cd core/ai-worker && python -m pytest tests/test_mem0_memory_engine.py tests/test_framework_adapters.py -v --tb=short
+
+test-week4-mem0: ## Run Week 4 mem0 integration tests
+	@echo "🧠 Running Week 4 mem0 Integration Tests..."
+	cd core/api && go test -v -race ./tests/week4_mem0_integration_test.go ./tests/setup_test.go
+
+test-week4-coverage: ## Generate Week 4 coverage reports
+	@echo "📊 Generating Week 4 Coverage Reports..."
+	chmod +x scripts/run_week4_tests.sh
+	./scripts/run_week4_tests.sh --coverage
+
+test-week4-performance: ## Run Week 4 performance tests
+	@echo "⚡ Running Week 4 Performance Tests..."
+	cd core/api && go test -bench=. -benchmem ./tests/memory_handlers_unit_test.go ./tests/setup_test.go
+	cd core/ai-worker && python -m pytest tests/test_mem0_memory_engine.py::TestMem0MemoryEnginePerformance -v --benchmark-only
+
+test-memory-unit: ## Run memory unit tests
+	@echo "🧪 Running Memory Unit Tests..."
+	cd core/api && go test -v ./tests/memory_handlers_unit_test.go ./tests/setup_test.go
+	cd core/ai-worker && python -m pytest tests/test_mem0_memory_engine.py -v --tb=short
+
+test-memory-integration: ## Run memory integration tests
+	@echo "🔗 Running Memory Integration Tests..."
+	cd core/api && go test -v ./tests/memory_integration_test.go ./tests/setup_test.go
+
+test-framework-adapters: ## Run framework adapter tests
+	@echo "🔌 Running Framework Adapter Tests..."
+	cd core/ai-worker && python -m pytest tests/test_framework_adapters.py -v --tb=short
+
+test-memory-benchmarks: ## Run memory system benchmarks
+	@echo "📈 Running Memory System Benchmarks..."
+	cd core/api && go test -bench=BenchmarkMemoryOperations -benchmem ./tests/memory_handlers_unit_test.go ./tests/setup_test.go
+	cd core/api && go test -bench=BenchmarkMemoryOperations -benchmem ./tests/memory_integration_test.go ./tests/setup_test.go

@@ -3,7 +3,10 @@ package handlers
 import (
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -26,21 +29,36 @@ func (h *Handler) ExecuteAgent(c *gin.Context) {
 	var req models.ExecuteAgentRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "Invalid request format",
+			"error":   "Invalid request format",
 			"details": err.Error(),
 		})
 		return
 	}
 
-	// Verify agent exists and belongs to user
-	var agentExists bool
-	err := h.db.QueryRow(`
-		SELECT EXISTS(SELECT 1 FROM agents WHERE id = $1 AND user_id = $2 AND status = 'active')
-	`, agentID, userID).Scan(&agentExists)
+	// Get agent information including framework preference
+	var agent struct {
+		ID                  string
+		Name                string
+		FrameworkPreference string
+		Status              string
+	}
 
-	if err != nil || !agentExists {
+	err := h.db.QueryRow(`
+		SELECT id, name, framework_preference, status
+		FROM agents
+		WHERE id = $1 AND user_id = $2 AND status = 'active'
+	`, agentID, userID).Scan(&agent.ID, &agent.Name, &agent.FrameworkPreference, &agent.Status)
+
+	if err == sql.ErrNoRows {
 		c.JSON(http.StatusNotFound, gin.H{
 			"error": "Agent not found or not accessible",
+		})
+		return
+	}
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to retrieve agent information",
 		})
 		return
 	}
@@ -64,25 +82,45 @@ func (h *Handler) ExecuteAgent(c *gin.Context) {
 		return
 	}
 
-	// For MVP, we'll simulate execution with a simple response
-	// In Week 3-4, this will be replaced with actual AI framework integration
-	outputText := h.simulateAgentExecution(req.InputText)
+	// Execute agent using real Python AI Worker
+	outputText, frameworkUsed, err := h.executeAgentReal(agentID, req.InputText, agent.FrameworkPreference)
+	if err != nil {
+		// Update execution record with error
+		_, updateErr := h.db.Exec(`
+			UPDATE executions
+			SET status = $1, error_message = $2, completed_at = $3
+			WHERE id = $4
+		`, "failed", err.Error(), time.Now(), executionID)
+
+		if updateErr != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": "Failed to update execution record: " + updateErr.Error(),
+			})
+			return
+		}
+
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to execute agent: " + err.Error(),
+		})
+		return
+	}
 	executionTime := int(time.Since(startTime).Milliseconds())
 
 	// Update execution record
 	toolsUsedJSON, _ := json.Marshal([]string{})
 	metadataJSON, _ := json.Marshal(map[string]interface{}{
-		"simulated": true,
-		"mvp_mode": true,
+		"real_execution": true,
+		"ai_worker_used": true,
+		"agent_name":     agent.Name,
 	})
 
 	completedAt := time.Now()
 	_, err = h.db.Exec(`
-		UPDATE executions 
-		SET output_text = $1, framework_used = $2, tools_used = $3, 
+		UPDATE executions
+		SET output_text = $1, framework_used = $2, tools_used = $3,
 		    execution_time_ms = $4, status = $5, metadata = $6, completed_at = $7
 		WHERE id = $8
-	`, outputText, "simulated", toolsUsedJSON, executionTime, "completed", metadataJSON, completedAt, executionID)
+	`, outputText, frameworkUsed, toolsUsedJSON, executionTime, "completed", metadataJSON, completedAt, executionID)
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -96,7 +134,7 @@ func (h *Handler) ExecuteAgent(c *gin.Context) {
 		OutputText:      outputText,
 		ToolsUsed:       []string{},
 		ExecutionTimeMs: executionTime,
-		FrameworkUsed:   "simulated",
+		FrameworkUsed:   frameworkUsed,
 		Status:          "completed",
 		CreatedAt:       startTime,
 	}
@@ -104,7 +142,62 @@ func (h *Handler) ExecuteAgent(c *gin.Context) {
 	c.JSON(http.StatusOK, response)
 }
 
-// simulateAgentExecution provides a simple simulation for MVP
+// executeAgentReal executes agent using real Python AI Worker
+func (h *Handler) executeAgentReal(agentID, input, framework string) (string, string, error) {
+	// Prepare request to Python AI Worker
+	requestBody := map[string]interface{}{
+		"input":     input,
+		"framework": framework,
+		"agent_id":  agentID,
+		"timeout":   30,
+	}
+
+	jsonData, err := json.Marshal(requestBody)
+	if err != nil {
+		return "", framework, fmt.Errorf("failed to marshal request: %v", err)
+	}
+
+	// Create HTTP client with timeout
+	client := &http.Client{Timeout: 35 * time.Second}
+
+	// Call Python AI Worker (assuming it runs on localhost:8080 in Docker)
+	aiWorkerURL := os.Getenv("AI_WORKER_URL")
+	if aiWorkerURL == "" {
+		aiWorkerURL = "http://localhost:8080" // Default for development
+	}
+
+	resp, err := client.Post(aiWorkerURL+"/api/execute",
+		"application/json", strings.NewReader(string(jsonData)))
+	if err != nil {
+		return "", framework, fmt.Errorf("failed to call AI worker: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", framework, fmt.Errorf("AI worker returned status %d", resp.StatusCode)
+	}
+
+	// Parse response
+	var result struct {
+		Output        string  `json:"output"`
+		FrameworkUsed string  `json:"framework_used"`
+		Status        string  `json:"status"`
+		Error         string  `json:"error,omitempty"`
+		ExecutionTime float64 `json:"execution_time"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return "", framework, fmt.Errorf("failed to decode AI worker response: %v", err)
+	}
+
+	if result.Status == "failed" {
+		return "", framework, fmt.Errorf("AI worker execution failed: %s", result.Error)
+	}
+
+	return result.Output, result.FrameworkUsed, nil
+}
+
+// simulateAgentExecution provides a simple simulation for MVP (DEPRECATED - Use executeAgentReal)
 func (h *Handler) simulateAgentExecution(input string) string {
 	return "Hello! I'm an AgentOS MVP agent. You said: \"" + input + "\". " +
 		"I'm currently in simulation mode. In Week 3-4, I'll be integrated with " +
@@ -127,8 +220,8 @@ func (h *Handler) GetAgentExecutions(c *gin.Context) {
 		SELECT id, agent_id, user_id, input_text, output_text, framework_used,
 		       tools_used, execution_time_ms, status, error_message, metadata,
 		       started_at, completed_at
-		FROM executions 
-		WHERE agent_id = $1 AND user_id = $2 
+		FROM executions
+		WHERE agent_id = $1 AND user_id = $2
 		ORDER BY started_at DESC
 		LIMIT 50
 	`, agentID, userID)
@@ -193,7 +286,7 @@ func (h *Handler) GetExecution(c *gin.Context) {
 		SELECT id, agent_id, user_id, input_text, output_text, framework_used,
 		       tools_used, execution_time_ms, status, error_message, metadata,
 		       started_at, completed_at
-		FROM executions 
+		FROM executions
 		WHERE id = $1 AND user_id = $2
 	`, executionID, userID).Scan(
 		&execution.ID, &execution.AgentID, &execution.UserID,
@@ -278,8 +371,8 @@ func (h *Handler) GetAgentMemory(c *gin.Context) {
 	// For MVP, return empty memory
 	// In Week 5-6, this will integrate with actual memory system
 	c.JSON(http.StatusOK, gin.H{
-		"agent_id":       agentID,
-		"working_memory": []interface{}{},
+		"agent_id":        agentID,
+		"working_memory":  []interface{}{},
 		"episodic_memory": []interface{}{},
 		"memory_stats": map[string]interface{}{
 			"total_memories": 0,

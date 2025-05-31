@@ -15,7 +15,7 @@ import logging
 from typing import Dict, Any, List, Optional, Union
 
 from .base_wrapper import (
-    BaseFrameworkWrapper, FrameworkType, AgentConfig, 
+    BaseFrameworkWrapper, FrameworkType, AgentConfig,
     TaskRequest, TaskResponse, InitializationError, ExecutionError
 )
 
@@ -48,11 +48,11 @@ logger = logging.getLogger(__name__)
 class CrewAIAgentWrapper(BaseFrameworkWrapper):
     """
     CrewAI framework wrapper for AgentOS.
-    
+
     Provides role-based multi-agent workflows and team collaboration
     capabilities through the CrewAI framework integration.
     """
-    
+
     def __init__(self, agent_config: AgentConfig):
         super().__init__(agent_config)
         self.crewai_agent = None
@@ -61,15 +61,15 @@ class CrewAIAgentWrapper(BaseFrameworkWrapper):
         self.role = self._determine_role()
         self.goal = self._determine_goal()
         self.backstory = self._determine_backstory()
-        
+
     def _get_framework_type(self) -> FrameworkType:
         """Return CrewAI framework type"""
         return FrameworkType.CREWAI
-    
+
     def _determine_role(self) -> str:
         """Determine agent role based on capabilities"""
         capabilities = self.agent_config.capabilities
-        
+
         if "web_search" in capabilities and "text_processing" in capabilities:
             return "Research Analyst"
         elif "calculations" in capabilities:
@@ -80,7 +80,7 @@ class CrewAIAgentWrapper(BaseFrameworkWrapper):
             return "API Specialist"
         else:
             return "General Assistant"
-    
+
     def _determine_goal(self) -> str:
         """Determine agent goal based on role and capabilities"""
         role_goals = {
@@ -91,7 +91,7 @@ class CrewAIAgentWrapper(BaseFrameworkWrapper):
             "General Assistant": "Provide helpful assistance across various tasks"
         }
         return role_goals.get(self.role, "Complete assigned tasks effectively")
-    
+
     def _determine_backstory(self) -> str:
         """Determine agent backstory based on role"""
         backstories = {
@@ -102,7 +102,7 @@ class CrewAIAgentWrapper(BaseFrameworkWrapper):
             "General Assistant": "You are a versatile assistant capable of handling a wide range of tasks with efficiency and accuracy."
         }
         return backstories.get(self.role, "You are a helpful AI assistant.")
-    
+
     async def initialize(self) -> bool:
         """Initialize CrewAI agent with capabilities"""
         try:
@@ -112,30 +112,66 @@ class CrewAIAgentWrapper(BaseFrameworkWrapper):
                     framework="crewai",
                     agent_id=self.agent_id
                 )
-            
-            # For now, we'll create a mock implementation since CrewAI is not installed
-            # This allows the framework to be tested without requiring all dependencies
-            
-            self.crewai_agent = {
-                "role": self.role,
-                "goal": self.goal,
-                "backstory": self.backstory,
-                "tools": []
-            }
-            
-            self.crew = {
-                "agents": [self.crewai_agent],
-                "tasks": [],
-                "process": "sequential"
-            }
-            
+
+            # Real CrewAI implementation with fallback for missing dependencies
+            # If CrewAI is not available, we'll create a functional alternative using OpenAI
+
+            try:
+                # Try to use real CrewAI if available
+                import crewai
+                from crewai import Agent, Task, Crew
+
+                # Create real CrewAI agent
+                self.crewai_agent = Agent(
+                    role=self.role,
+                    goal=self.goal,
+                    backstory=self.backstory,
+                    verbose=True,
+                    allow_delegation=False,
+                    tools=[]
+                )
+
+                # Create real CrewAI crew
+                self.crew = Crew(
+                    agents=[self.crewai_agent],
+                    tasks=[],
+                    verbose=True,
+                    process="sequential"
+                )
+
+                self.use_real_crewai = True
+                logger.info(f"Using real CrewAI for agent {self.agent_id}")
+
+            except ImportError:
+                # Fallback to OpenAI-based implementation
+                self.crewai_agent = {
+                    "role": self.role,
+                    "goal": self.goal,
+                    "backstory": self.backstory,
+                    "tools": [],
+                    "llm_config": {
+                        "model": self.agent_config.model,
+                        "temperature": self.agent_config.temperature,
+                        "api_key": os.getenv("OPENAI_API_KEY")
+                    }
+                }
+
+                self.crew = {
+                    "agents": [self.crewai_agent],
+                    "tasks": [],
+                    "process": "sequential"
+                }
+
+                self.use_real_crewai = False
+                logger.info(f"Using OpenAI-based CrewAI alternative for agent {self.agent_id}")
+
             # Convert capabilities to tools
             await self._setup_capabilities()
-            
+
             self.is_initialized = True
             logger.info(f"CrewAI agent {self.agent_id} initialized successfully as {self.role}")
             return True
-            
+
         except Exception as e:
             logger.error(f"Failed to initialize CrewAI agent {self.agent_id}: {str(e)}")
             raise InitializationError(
@@ -143,7 +179,7 @@ class CrewAIAgentWrapper(BaseFrameworkWrapper):
                 framework="crewai",
                 agent_id=self.agent_id
             )
-    
+
     async def _setup_capabilities(self):
         """Convert AgentOS capabilities to CrewAI tools"""
         for capability in self.agent_config.capabilities:
@@ -151,7 +187,7 @@ class CrewAIAgentWrapper(BaseFrameworkWrapper):
             if tool:
                 self.tools.append(tool)
                 logger.info(f"Added capability '{capability}' to CrewAI agent")
-    
+
     async def _capability_to_tool(self, capability: str) -> Optional[Dict[str, Any]]:
         """Convert AgentOS capability to CrewAI tool format"""
         tool_map = {
@@ -182,21 +218,24 @@ class CrewAIAgentWrapper(BaseFrameworkWrapper):
             }
         }
         return tool_map.get(capability)
-    
+
     async def execute(self, task_request: TaskRequest) -> TaskResponse:
         """Execute task using CrewAI agent"""
         if not self.is_initialized:
             await self.initialize()
-        
+
         task_id = str(uuid.uuid4())
         start_time = time.time()
-        
+
         try:
-            # Mock CrewAI execution for testing
-            result = f"CrewAI {self.role} completed task: {task_request.task}"
-            
+            # Real CrewAI execution with fallback
+            if self.use_real_crewai:
+                result = await self._execute_with_real_crewai(task_request.task)
+            else:
+                result = await self._execute_with_openai_alternative(task_request.task)
+
             execution_time = time.time() - start_time
-            
+
             return self._create_task_response(
                 task_id=task_id,
                 result=result,
@@ -209,11 +248,11 @@ class CrewAIAgentWrapper(BaseFrameworkWrapper):
                     "process_type": "sequential"
                 }
             )
-            
+
         except Exception as e:
             execution_time = time.time() - start_time
             logger.error(f"CrewAI execution failed for task {task_id}: {str(e)}")
-            
+
             return self._create_task_response(
                 task_id=task_id,
                 result=None,
@@ -222,21 +261,21 @@ class CrewAIAgentWrapper(BaseFrameworkWrapper):
                 error_message=str(e),
                 metadata={"error_type": type(e).__name__}
             )
-    
+
     async def cleanup(self) -> bool:
         """Clean up CrewAI resources"""
         try:
             if self.crew:
                 self.crew["tasks"] = []
-            
+
             self.is_initialized = False
             logger.info(f"CrewAI agent {self.agent_id} cleaned up successfully")
             return True
-            
+
         except Exception as e:
             logger.error(f"Failed to cleanup CrewAI agent {self.agent_id}: {str(e)}")
             return False
-    
+
     def _get_memory_usage(self) -> Dict[str, Any]:
         """Get CrewAI-specific memory usage"""
         return {
@@ -246,3 +285,64 @@ class CrewAIAgentWrapper(BaseFrameworkWrapper):
             "role_context": len(self.backstory),
             "tools_loaded": len(self.tools)
         }
+
+    async def _execute_with_real_crewai(self, task: str) -> str:
+        """Execute task using real CrewAI framework"""
+        try:
+            from crewai import Task
+
+            # Create CrewAI task
+            crewai_task = Task(
+                description=task,
+                agent=self.crewai_agent,
+                expected_output="A comprehensive response to the given task"
+            )
+
+            # Add task to crew
+            self.crew.tasks = [crewai_task]
+
+            # Execute with CrewAI
+            result = self.crew.kickoff()
+
+            return f"CrewAI {self.role} Result:\n\n{result}"
+
+        except Exception as e:
+            return f"CrewAI execution error: {str(e)}"
+
+    async def _execute_with_openai_alternative(self, task: str) -> str:
+        """Execute task using OpenAI as CrewAI alternative"""
+        try:
+            import openai
+
+            # Check for API key
+            api_key = self.crewai_agent.get("llm_config", {}).get("api_key")
+            if not api_key:
+                return "Error: OpenAI API key not configured for CrewAI alternative"
+
+            # Create OpenAI client
+            client = openai.OpenAI(api_key=api_key)
+
+            # Create role-based system message
+            system_message = f"""You are a {self.role} with the following background:
+{self.backstory}
+
+Your goal: {self.goal}
+
+You are working as part of a CrewAI team. Approach this task with your specific role expertise and provide detailed, professional results."""
+
+            # Make API call
+            response = client.chat.completions.create(
+                model=self.crewai_agent["llm_config"].get("model", "gpt-3.5-turbo"),
+                messages=[
+                    {"role": "system", "content": system_message},
+                    {"role": "user", "content": task}
+                ],
+                temperature=self.crewai_agent["llm_config"].get("temperature", 0.7),
+                max_tokens=1500
+            )
+
+            result = response.choices[0].message.content
+            return f"CrewAI {self.role} (OpenAI Alternative) Result:\n\n{result}"
+
+        except Exception as e:
+            return f"CrewAI alternative execution error: {str(e)}"

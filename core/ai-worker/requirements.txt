@@ -4,7 +4,7 @@ uvicorn[standard]==0.24.0
 
 # LangChain ecosystem
 langchain==0.0.350
-langchain-community==0.0.1
+langchain-community==0.0.2
 langchain-experimental==0.0.47
 langchain-openai==0.0.2
 langchain-anthropic==0.0.1
@@ -15,14 +15,19 @@ anthropic==0.7.8
 tiktoken==0.5.2
 
 # Multi-agent frameworks (Week 3)
-swarms==5.1.0
+swarms==7.7.9
 crewai==0.22.5
 pyautogen==0.2.0
+
+# Memory system - Week 4: Advanced Memory with mem0
+mem0ai==0.1.0
 
 # Vector databases and embeddings
 chromadb==0.4.18
 faiss-cpu==1.7.4
 sentence-transformers==2.2.2
+qdrant-client==1.7.0
+weaviate-client==3.25.3
 
 # Data processing
 pandas==2.1.4
@@ -59,9 +64,12 @@ python-dotenv==1.0.0
 pyyaml==6.0.1
 
 # Security
-cryptography==41.0.8
+cryptography==43.0.3
 python-jose[cryptography]==3.3.0
 
 # Utilities
 python-multipart==0.0.6
 jinja2==3.1.2
+
+# Real tool implementations
+duckduckgo-search==3.9.6

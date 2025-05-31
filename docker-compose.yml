@@ -166,6 +166,7 @@ services:
       - MINIO_ACCESS_KEY=agentos
       - MINIO_SECRET_KEY=agentos_dev_password
       - JWT_SECRET=dev-jwt-secret-change-in-production
+      - AI_WORKER_URL=http://ai-worker:8080
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
     volumes:
@@ -180,8 +181,41 @@ services:
         condition: service_healthy
       nats:
         condition: service_healthy
+      ai-worker:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Python AI Worker Service
+  ai-worker:
+    build:
+      context: ./core/ai-worker
+      dockerfile: Dockerfile.dev
+    container_name: agentos-ai-worker
+    ports:
+      - "8080:8080"
+    environment:
+      - PYTHON_ENV=development
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - CORE_API_URL=http://core-api:8000
+      - REDIS_URL=redis://redis:6379/1
+      - DATABASE_URL=postgres://agentos:agentos_dev_password@postgres:5432/agentos_dev?sslmode=disable
+    volumes:
+      - ./core/ai-worker:/app
+      - ai_worker_cache:/root/.cache
+    networks:
+      - agentos-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -302,6 +336,7 @@ volumes:
   prometheus_data:
   grafana_data:
   go_mod_cache:
+  ai_worker_cache:
 
 networks:
   agentos-network:

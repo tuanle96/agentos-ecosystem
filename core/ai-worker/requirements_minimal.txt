@@ -1,0 +1,17 @@
+# Minimal requirements for mock elimination testing
+# FastAPI and ASGI server
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+
+# Data processing
+pydantic==2.5.1
+
+# HTTP and async
+httpx==0.25.2
+requests==2.31.0
+
+# Environment and configuration
+python-dotenv==1.0.0
+
+# Real tool implementations
+duckduckgo-search==3.9.6
